@@ -17,11 +17,11 @@ be used as a base scaffold for research projects. For an overview of tasks, data
  - [OC22](https://arxiv.org/abs/2206.08917)
 
 
-## Installation1
+## Installation-1
 
 See [installation instructions](https://github.com/Open-Catalyst-Project/ocp/blob/main/INSTALL.md).
 
-
+## Installation-2
 * Install specific versions of Pymatgen and ASE: `pip install pymatgen==2020.4.2 ase==3.19.1`
 * Install Catkit from Github: `pip install git+https://github.com/ulissigroup/CatKit.git catkit`
 * Clone this repo and install with: `pip install -e .`
