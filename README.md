@@ -1,21 +1,7 @@
-# `ocp` by Open Catalyst Project
+# `Shell-ocp` based on Open Catalyst Project
 
 [![CircleCI](https://circleci.com/gh/Open-Catalyst-Project/ocp.svg?style=shield)](https://circleci.com/gh/Open-Catalyst-Project/ocp)
 [![codecov](https://codecov.io/gh/Open-Catalyst-Project/ocp/branch/codecov/graph/badge.svg?token=M606LH5LK6)](https://codecov.io/gh/Open-Catalyst-Project/ocp)
-
-`ocp` is the [Open Catalyst Project](https://opencatalystproject.org/)'s
-library of state-of-the-art machine learning algorithms for catalysis.
-
-<!-- <div align="left">
-    <img src="https://user-images.githubusercontent.com/1156489/170388229-642c6619-dece-4c88-85ef-b46f4d5f1031.gif">
-</div> -->
-
-It provides training and evaluation code for tasks and models that take arbitrary
-chemical structures as input to predict energies / forces / positions, and can
-be used as a base scaffold for research projects. For an overview of tasks, data, and metrics, please read our papers:
- - [OC20](https://arxiv.org/abs/2010.09990)
- - [OC22](https://arxiv.org/abs/2206.08917)
-
 
 ## Project description
 
@@ -37,6 +23,19 @@ See [installation instructions](https://github.com/Open-Catalyst-Project/ocp/blo
 ## Acknowledgements
 
 * This work is an extension work based on OCP dataset, machine learning model and most of the scripts.
+
+`ocp` is the [Open Catalyst Project](https://opencatalystproject.org/)'s
+library of state-of-the-art machine learning algorithms for catalysis.
+
+<!-- <div align="left">
+    <img src="https://user-images.githubusercontent.com/1156489/170388229-642c6619-dece-4c88-85ef-b46f4d5f1031.gif">
+</div> -->
+
+It provides training and evaluation code for tasks and models that take arbitrary
+chemical structures as input to predict energies / forces / positions, and can
+be used as a base scaffold for research projects. For an overview of tasks, data, and metrics, please read our papers:
+ - [OC20](https://arxiv.org/abs/2010.09990)
+ - [OC22](https://arxiv.org/abs/2206.08917)
 
 
 ## License
