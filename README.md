@@ -6,9 +6,9 @@
 `ocp` is the [Open Catalyst Project](https://opencatalystproject.org/)'s
 library of state-of-the-art machine learning algorithms for catalysis.
 
-<div align="left">
+<!-- <div align="left">
     <img src="https://user-images.githubusercontent.com/1156489/170388229-642c6619-dece-4c88-85ef-b46f4d5f1031.gif">
-</div>
+</div> -->
 
 It provides training and evaluation code for tasks and models that take arbitrary
 chemical structures as input to predict energies / forces / positions, and can
@@ -17,25 +17,27 @@ be used as a base scaffold for research projects. For an overview of tasks, data
  - [OC22](https://arxiv.org/abs/2206.08917)
 
 
+## Project description
+
+- 
+- The slab generation code task is under the `Shell_repo/ocp/slab_generation/`
+
+
 ## Installation-1
 
 See [installation instructions](https://github.com/Open-Catalyst-Project/ocp/blob/main/INSTALL.md).
 
 ## Installation-2
-* Install specific versions of Pymatgen and ASE: `pip install pymatgen==2020.4.2 ase==3.19.1`
+* Install specific versions of Pymatgen and ASE: `pip install pymatgen==2020.4.2 `
 * Install Catkit from Github: `pip install git+https://github.com/ulissigroup/CatKit.git catkit`
-* Clone this repo and install with: `pip install -e .`
-
-
+* Clone this repo and install with: `pip install -e ..`
 
 
 
 ## Acknowledgements
 
-- This codebase was initially forked from [CGCNN](https://github.com/txie-93/cgcnn)
-by [Tian Xie](http://txie.me), but has undergone significant changes since.
-- A lot of engineering ideas have been borrowed from [github.com/facebookresearch/mmf](https://github.com/facebookresearch/mmf).
-- The DimeNet++ implementation is based on the [author's Tensorflow implementation](https://github.com/klicperajo/dimenet) and the [DimeNet implementation in Pytorch Geometric](https://github.com/rusty1s/pytorch_geometric/blob/master/torch_geometric/nn/models/dimenet.py).
+* This work is an extension work based on OCP dataset, machine learning model and most of the scripts.
+
 
 ## License
 
