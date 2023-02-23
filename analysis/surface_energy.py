@@ -1,20 +1,36 @@
+import random 
 import numpy as np
+from sympy import Symbol
 from matplotlib import pylab as plt
 
+from pymatgen.analysis.surface_analysis import SurfaceEnergyPlotter
 from pymatgen.core.composition import Composition
 from pymatgen.analysis.surface_analysis import SlabEntry
 from pymatgen.entries.computed_entries import ComputedEntry
 from pymatgen.io.ase import AseAtomsAdaptor
 from ase import Atoms
 
-def get_slab_entry(dat):
+
+
+def random_color_generator():
+    rgb_indices = [0, 1, 2]
+    color = [0, 0, 0, 1]
+    random.shuffle(rgb_indices)
+    for i, ind in enumerate(rgb_indices):
+        if i == 2:
+            break
+        color[ind] = np.random.uniform(0, 1)
+    return color
+
+def get_slab_entry(dat, color=None):
 
     atoms=Atoms(dat.atomic_numbers,
                 positions=dat.pos,
                 tags=dat.tags,
                 cell=dat.cell.squeeze(), pbc=True)
     
-    return SlabEntry(AseAtomsAdaptor.get_structure(atoms), dat.y, dat.miller)
+    return SlabEntry(AseAtomsAdaptor.get_structure(atoms), dat.y, dat.miller, 
+                     label=dat.miller, color=color)
 
 
 def get_surface_energy(dat):
@@ -77,5 +93,25 @@ def plot_surface_energies(list_of_dat, dmu=0):
     plt.scatter(-100, -100, c='g', edgecolor='k', s=50, label='O-excess')
     plt.scatter(-100, -100, c='b', edgecolor='k', s=50, label='O-defficient')
     plt.legend()
+    
+    return plt
+
+
+def make_surface_energy_plotter(list_of_dat, chempot_range=[-2,0]):
+    dat = list_of_dat[0]
+    bulk_entry = ComputedEntry(dat.bulk_formula, dat.bulk_energy)
+    gas_entry = ComputedEntry('O2', 2*-7.204) # the ref energy for O in OC20
+    
+    # color code Miller indices
+    hkl_color_dict = {}
+    for dat in list_of_dat:
+        hkl_color_dict[dat.miller] = random_color_generator()
+            
+    # Get the SurfaceEnergyPlotter object for doing surface energy analysis
+    slab_entries = [get_slab_entry(dat, color=hkl_color_dict[dat.miller]) for dat in list_of_dat]
+    surfplot = SurfaceEnergyPlotter(slab_entries, bulk_entry, ref_entries=[gas_entry])
+    
+    plt = surfplot.chempot_vs_gamma(Symbol('delu_O'), 
+                                    chempot_range, show_unstable=False)
     
     return plt
