@@ -9,11 +9,12 @@
 - The slab generation code task is under the `Shell_repo/ocp/slab_generation/`
 
 
-## Installation-1
+## Installation-step 1
 
 See [installation instructions](https://github.com/Open-Catalyst-Project/ocp/blob/main/INSTALL.md).
 
-## Installation-2
+## Installation-step 2
+
 * Install specific versions of Pymatgen and ASE: `pip install pymatgen==2020.4.2 `
 * Install Catkit from Github: `pip install git+https://github.com/ulissigroup/CatKit.git catkit`
 * Clone this repo and install with: `pip install -e ..`
