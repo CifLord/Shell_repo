@@ -5,7 +5,7 @@
 
 ## Project description
 
-- 
+- The activity data generation step will update later...
 - The slab generation code task is under the `Shell_repo/ocp/slab_generation/`
 
 
