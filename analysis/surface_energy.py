@@ -105,7 +105,7 @@ def plot_surface_energies(list_of_dat, dmu=0):
     return plt
 
 
-def make_surface_energy_plotter(list_of_dat, chempot_range=[-2,0]):
+def make_surface_energy_plotter(list_of_dat):
     dat = list_of_dat[0]
     bulk_entry = ComputedEntry(dat.bulk_formula, dat.bulk_energy)
     gas_entry = ComputedEntry('O2', 2*-7.204) # the ref energy for O in OC20
@@ -119,7 +119,68 @@ def make_surface_energy_plotter(list_of_dat, chempot_range=[-2,0]):
     slab_entries = [get_slab_entry(dat, color=hkl_color_dict[dat.miller]) for dat in list_of_dat]
     surfplot = SurfaceEnergyPlotter(slab_entries, bulk_entry, ref_entries=[gas_entry])
     
-    plt = surfplot.chempot_vs_gamma(Symbol('delu_O'), 
-                                    chempot_range, show_unstable=False)
+    return surfplot
+
+def plot_chempot_vs_surface_energy(list_of_dat, chempot_range=[-2,0]):
+    
+    surfplot = make_surface_energy_plotter(list_of_dat)
+    
+    return surfplot.chempot_vs_gamma(Symbol('delu_O'), 
+                                     chempot_range, show_unstable=False)
+
+
+def plot_P_vs_T(list_of_dat, T_range, lnP_range, increment=100):
+    
+    dmus = []
+    for T in np.linspace(T_range[0], T_range[1], increment):
+        for P in np.linspace(lnP_range[0], lnP_range[1], increment):
+            dmus.append(get_dmu(T, 10**(P)))
+
+    surfplt = make_surface_energy_plotter(list_of_dat)
+            
+    hkl = list(surfplt.all_slab_entries.keys())[0]
+    stab_entry_stable_dict = {}
+    for dmu in np.linspace(min(dmus), max(dmus), increment):
+        entry = surfplt.get_stable_entry_at_u(hkl, delu_dict={Symbol('delu_O'): dmu})[0]
+        if entry not in stab_entry_stable_dict.keys():
+            stab_entry_stable_dict[entry] = []
+        stab_entry_stable_dict[entry].append(dmu)
+
+    stab_comp_dict = {}
+    stab_comp_color = {}
+    for entry in stab_entry_stable_dict.keys():
+        stab_comp_dict[entry.composition.formula.replace(' ', '')] = [min(stab_entry_stable_dict[entry]), 
+                                                                      max(stab_entry_stable_dict[entry])]
+        stab_comp_color[entry.composition.formula.replace(' ', '')] = random_color_generator()
+
+    all_lines = []
+    for T in np.linspace(T_range[0], T_range[1], increment):
+        P_length_dict = {}
+        for P in np.linspace(lnP_range[0], lnP_range[1], increment):
+            dmu = get_dmu(T, 10**(P))
+            color = None
+            for comp in stab_comp_dict.keys():
+                if comp not in P_length_dict.keys():
+                    P_length_dict[comp] = []
+                if stab_comp_dict[comp][0] < dmu < stab_comp_dict[comp][1]:
+                    P_length_dict[comp].append(P)
+
+        for comp in P_length_dict.keys():
+            if not P_length_dict[comp]:
+                continue
+            all_lines.append([T, min(P_length_dict[comp]), 
+                              max(P_length_dict[comp]), stab_comp_color[comp], comp])
+
+    labeled = []
+    for l in all_lines:
+        if l[4] not in labeled:
+            plt.plot([l[0], l[0]], [l[1], l[2]], color=l[3], linewidth=3, label=l[4])
+            labeled.append(l[4])
+        else:
+            plt.plot([l[0], l[0]], [l[1], l[2]], color=l[3], linewidth=3)        
+
+    plt.xlabel('Temperature (K)', fontsize=12.5)
+    plt.ylabel('Pressure ln(P) (MPa)', fontsize=12.5)
+    plt.legend()
     
     return plt
