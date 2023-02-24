@@ -181,6 +181,10 @@ def plot_P_vs_T(list_of_dat, T_range, lnP_range, increment=100):
 
     plt.xlabel('Temperature (K)', fontsize=12.5)
     plt.ylabel('Pressure ln(P) (MPa)', fontsize=12.5)
+    plt.xlim(T_range)
+    plt.ylim(lnP_range)
+    plt.plot([373.15, 373.15], plt.ylim(), 'k')
+    plt.plot(plt.xlim(), [-1, -1], 'k')
     plt.legend()
     
     return plt
