@@ -11,6 +11,14 @@ from pymatgen.io.ase import AseAtomsAdaptor
 from ase import Atoms
 
 
+def get_dmu(T, P, a=-7.86007886e-02, b=1.14111159e+00, c=-8.34636289e-04):
+    # Get Delta mu_O as a function of T and P
+    k = 8.617333262145 * 10**-5 # eV/K
+    g = c*T**(b)+a
+    g0 = c*0**(b)+a
+    # g0 shifts dmu to 0 (ie we want a reference to T=0K)
+    return (1/2)*(g-g0 + k*T*np.log(P/0.1)) 
+
 
 def random_color_generator():
     rgb_indices = [0, 1, 2]
