@@ -6,7 +6,7 @@ from matplotlib import pylab as plt
 from pymatgen.analysis.surface_analysis import SurfaceEnergyPlotter
 from pymatgen.core.composition import Composition
 from pymatgen.analysis.surface_analysis import SlabEntry
-from pymatgen.entries.computed_entries import ComputedEntry
+from pymatgen.entries.computed_entries import ComputedEntry, ComputedStructureEntry
 from pymatgen.io.ase import AseAtomsAdaptor
 from ase import Atoms
 
@@ -105,9 +105,12 @@ def plot_surface_energies(list_of_dat, dmu=0):
     return plt
 
 
-def make_surface_energy_plotter(list_of_dat):
+def make_surface_energy_plotter(list_of_dat, bulk_structure=None):
     dat = list_of_dat[0]
-    bulk_entry = ComputedEntry(dat.bulk_formula, dat.bulk_energy)
+    if bulk_structure:
+        bulk_entry = ComputedStructureEntry(bulk_structure, dat.bulk_energy)
+    else:
+        bulk_entry = ComputedEntry(dat.bulk_formula, dat.bulk_energy)
     gas_entry = ComputedEntry('O2', 2*-7.204) # the ref energy for O in OC20
     
     # color code Miller indices
