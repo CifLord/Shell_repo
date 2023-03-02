@@ -123,25 +123,6 @@ class LmdbDataset(Dataset):
             self.env.close()
 
 
-class SinglePointLmdbDataset(LmdbDataset):
-    def __init__(self, config, transform=None):
-        super(SinglePointLmdbDataset, self).__init__(config, transform)
-        warnings.warn(
-            "SinglePointLmdbDataset is deprecated and will be removed in the future."
-            "Please use 'LmdbDataset' instead.",
-            stacklevel=3,
-        )
-
-
-class TrajectoryLmdbDataset(LmdbDataset):
-    def __init__(self, config, transform=None):
-        super(TrajectoryLmdbDataset, self).__init__(config, transform)
-        warnings.warn(
-            "TrajectoryLmdbDataset is deprecated and will be removed in the future."
-            "Please use 'LmdbDataset' instead.",
-            stacklevel=3,
-        )
-
 
 def data_list_collater(data_list, otf_graph=False):
     batch = Batch.from_data_list(data_list)
