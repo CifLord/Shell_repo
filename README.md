@@ -4,13 +4,11 @@
 [![codecov](https://codecov.io/gh/Open-Catalyst-Project/ocp/branch/codecov/graph/badge.svg?token=M606LH5LK6)](https://codecov.io/gh/Open-Catalyst-Project/ocp)
 
 ## Project description
-
-- Put the file in the correct dictionary
-- `.pt` the pre-trained parameters is in the release.
-- Put the file in the correct dictionary
-- `.lmdb` `.lmdb-lock` the dataset is in the dgx /shareddata/open-catalyst/slab/datasetss/slabs_rare.lmdb    /shareddata/open-catalyst/slab/datasetss/slabs_rare.lmdb-lock 
-
 - The slab generation code task is under the `Shell_repo/ocp/slab_generation/`
+- Put the `.pt` file in the `ocp/slab_prediction/prediction`
+- `.pt` the pre-trained parameters can be downloaded in the release.
+- Put the `.lmdb` `.lmdb-lock`file in the `ocp/slab_prediction/datasetss`
+- `.lmdb` `.lmdb-lock` the dataset is in the dgx /shareddata/open-catalyst/slab/datasetss/slabs_rare.lmdb    /shareddata/open-catalyst/slab/datasetss/slabs_rare.lmdb-lock 
 
 
 ## Installation-step 1

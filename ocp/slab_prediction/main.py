@@ -22,13 +22,13 @@ class myTread(threading.Thread):
         tot=len(data_list)                
         if self.threadID==1:
             lp=range(int(tot/3))
-            calc = OCPCalculator(config_yml='../configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml', checkpoint="../prediction/gemnet_oc_base_oc20_oc22.pt",device='0')
+            calc = OCPCalculator(config_yml='../configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml', checkpoint="./prediction/gemnet_oc_base_oc20_oc22.pt",device='0')
         elif self.threadID==2:
             lp=range(int(tot/3),int(2*tot/3))
-            calc = OCPCalculator(config_yml='../configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml', checkpoint="../prediction/gemnet_oc_base_oc20_oc22.pt",device='0')
+            calc = OCPCalculator(config_yml='../configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml', checkpoint="./prediction/gemnet_oc_base_oc20_oc22.pt",device='0')
         else:
             lp=range(int(tot*2/3),tot)
-            calc = OCPCalculator(config_yml='../configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml', checkpoint="../prediction/gemnet_oc_base_oc20_oc22.pt",device='0')
+            calc = OCPCalculator(config_yml='../configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml', checkpoint="./prediction/gemnet_oc_base_oc20_oc22.pt",device='0')
             
         for i in tqdm(lp):
             data=data_list[i]
