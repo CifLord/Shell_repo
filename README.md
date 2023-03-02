@@ -5,7 +5,9 @@
 
 ## Project description
 
-- The activity data generation step will update later...
+- Put the file in the correct dictionary `.pt file`
+- Put the file in the correct dictionary `.lmdb file`
+
 - The slab generation code task is under the `Shell_repo/ocp/slab_generation/`
 
 
@@ -13,11 +15,11 @@
 
 See [installation instructions](https://github.com/Open-Catalyst-Project/ocp/blob/main/INSTALL.md).
 
-## Installation-step 2
+<!-- ## Installation-step 2
 
 * Install specific versions of Pymatgen and ASE: `pip install pymatgen==2020.4.2 `
 * Install Catkit from Github: `pip install git+https://github.com/ulissigroup/CatKit.git catkit`
-* Clone this repo and install with: `pip install -e ..`
+* Clone this repo and install with: `pip install -e ..` -->
 
 
 
