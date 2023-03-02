@@ -5,8 +5,8 @@
 
 ## Project description
 
-- Put the file in the correct dictionary `.pt file`
-- Put the file in the correct dictionary `.lmdb file`
+- Put the file in the correct dictionary `.pt file` the file is in the release.
+- Put the file in the correct dictionary `.lmdb file` the dataset is in the dgx /shareddata/open-catalyst/slab/datasetss/slabs_rare.lmdb    /shareddata/open-catalyst/slab/datasetss/slabs_rare.lmdb-lock 
 
 - The slab generation code task is under the `Shell_repo/ocp/slab_generation/`
 
