@@ -82,5 +82,5 @@ if __name__ == "__main__":
     if args.inputs_only:
         calc.write_inputs()
     else:
-    atoms.set_calculator(calc)
-    e = atoms.get_potential_energy()
+        atoms.set_calculator(calc)
+        e = atoms.get_potential_energy()
