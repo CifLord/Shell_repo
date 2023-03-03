@@ -74,8 +74,8 @@ if __name__ == "__main__":
     # set magmoms
     d = pymatgen.io.vasp.__file__
     mags = yaml.safe_load(Path(d.replace(d.split('/')[-1], 'VASPIncarBase.yaml')).read_text())
-    vasp_params['magmom'] = [mags['INCAR']['MAGMOM'][site.symbol] for site in atoms \
-                             if site.symbol in mags['INCAR']['MAGMOM'].keys() else 0.6]
+    vasp_params['magmom'] = [mags['INCAR']['MAGMOM'][site.symbol] if site.symbol in \
+                             mags['INCAR']['MAGMOM'].keys() else 0.6 for site in atoms]
     
     # Run VASP
     calc = Vasp(**vasp_params)
