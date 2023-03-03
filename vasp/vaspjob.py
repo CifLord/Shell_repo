@@ -45,12 +45,12 @@ if __name__ == "__main__":
     if any([site.symbol in hubbard_u_dict.keys() for site in atoms]):
         vasp_params['ldau'] = True
         vasp_params['ldauj'] = [0]*len(atoms)
-        vasp_params['ldauu'] = [hubbard_u_dict[site.symbol] for site in atoms \
-                                if site.symbol in hubbard_u_dict.keys() else 0]
+        vasp_params['ldauu'] = [hubbard_u_dict[site.symbol] if site.symbol \
+                                in hubbard_u_dict.keys() else 0 for site in atoms]
         vasp_params['ldauprint'] = 0 
         vasp_params['ldautype'] = 2 
-        vasp_params['ldaul'] = [2 for site in atoms \
-                                if site.symbol in hubbard_u_dict.keys() else 0]
+        vasp_params['ldaul'] = [2 if site.symbol \
+                                in hubbard_u_dict.keys() else 0 for site in atoms]
         # contains f-electrons
         if any(z > 56 for z in atoms.get_atomic_numbers()):
             vasp_params["lmaxmix"] = 6
@@ -82,5 +82,5 @@ if __name__ == "__main__":
     if args.inputs_only:
         calc.write_inputs()
     else:
-        atoms.set_calculator(calc)
-        e = atoms.get_potential_energy()
+    atoms.set_calculator(calc)
+    e = atoms.get_potential_energy()
