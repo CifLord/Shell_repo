@@ -90,7 +90,7 @@ if __name__ == "__main__":
     # Run VASP
     calc = Vasp(**vasp_params)
     if args.inputs_only:
-        calc.write_inputs()
+        calc.write_input(read('POSCAR'))
     else:
         atoms.set_calculator(calc)
         e = atoms.get_potential_energy()
