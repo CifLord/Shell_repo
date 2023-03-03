@@ -56,8 +56,6 @@ if __name__ == "__main__":
             in hubbard_u_dict.keys() else 0
             ldau_luj[el]['J'] = 0
             ldau_luj[el]['L'] = 2 if el in hubbard_u_dict.keys() else 0
-            
-            
         vasp_params['ldau_luj'] = ldau_luj
         vasp_params['ldauprint'] = 0 
         vasp_params['ldautype'] = 2 
@@ -89,8 +87,8 @@ if __name__ == "__main__":
             'Mn3+': 4, 'Mn4+': 3, 'Mo': 5, 'Nd3+': 3, 'Ni': 5, 'Pm3+': 4, 
             'Pr3+': 2, 'Sm3+': 5, 'Tb3+': 6, 'Tm3+': 2, 'V': 5, 'W': 5, 'Yb3+': 1}   
     
-    vasp_params['magmom'] = {site.symbol: mags[site.symbol] if site.symbol in \
-                             mags.keys() else 0.6 for site in atoms}
+    vasp_params['magmom'] = {mags[site.symbol] if site.symbol in \
+                             mags.keys() else 0.6 for site in atoms]
     
     # Run VASP
     calc = Vasp(**vasp_params)
