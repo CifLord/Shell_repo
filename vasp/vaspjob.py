@@ -15,6 +15,8 @@ def read_options():
     parser = argparse.ArgumentParser()
     parser.add_argument("-a","--is_adslab", dest="is_adslab", default=False,
                         type=bool, help="If this is an adslab, set dipole corrections")
+    parser.add_argument("-o","--inputs_only", dest="inputs_only", default=False,
+                        type=bool, help="Writes VASP inputs only, do not run VASP if True")
 
 
     args = parser.parse_args()
@@ -77,5 +79,8 @@ if __name__ == "__main__":
     
     # Run VASP
     calc = Vasp(**vasp_params)
-    atoms.set_calculator(calc)
-    e = atoms.get_potential_energy()
+    if args.inputs_only:
+        calc.write_inputs()
+    else:
+        atoms.set_calculator(calc)
+        e = atoms.get_potential_energy()
