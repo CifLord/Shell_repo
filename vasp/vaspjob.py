@@ -50,13 +50,13 @@ if __name__ == "__main__":
                       'Mo': 4.38, 'Ni': 6.2, 'V': 3.25, 'W': 6.2}
     if any([site.symbol in hubbard_u_dict.keys() for site in atoms]):
         vasp_params['ldau'] = True
-        vasp_params['ldauj'] = [0]*len(atoms)
-        vasp_params['ldauu'] = [hubbard_u_dict[site.symbol] if site.symbol \
-                                in hubbard_u_dict.keys() else 0 for site in atoms]
+        vasp_params['ldauj'] = {site.symbol: 0 for site in atoms}
+        vasp_params['ldauu'] = {site.symbol: hubbard_u_dict[site.symbol] if site.symbol \
+                                in hubbard_u_dict.keys() else 0 for site in atoms}
         vasp_params['ldauprint'] = 0 
         vasp_params['ldautype'] = 2 
-        vasp_params['ldaul'] = [2 if site.symbol \
-                                in hubbard_u_dict.keys() else 0 for site in atoms]
+        vasp_params['ldaul'] = {site.symbol: 2 if site.symbol \
+                                in hubbard_u_dict.keys() else 0 for site in atoms}
         # contains f-electrons
         if any(z > 56 for z in atoms.get_atomic_numbers()):
             vasp_params["lmaxmix"] = 6
@@ -84,8 +84,8 @@ if __name__ == "__main__":
             'Mn3+': 4, 'Mn4+': 3, 'Mo': 5, 'Nd3+': 3, 'Ni': 5, 'Pm3+': 4, 
             'Pr3+': 2, 'Sm3+': 5, 'Tb3+': 6, 'Tm3+': 2, 'V': 5, 'W': 5, 'Yb3+': 1}   
     
-    vasp_params['magmom'] = [mags[site.symbol] if site.symbol in \
-                             mags.keys() else 0.6 for site in atoms]
+    vasp_params['magmom'] = {site.symbol: mags[site.symbol] if site.symbol in \
+                             mags.keys() else 0.6 for site in atoms}
     
     # Run VASP
     calc = Vasp(**vasp_params)
