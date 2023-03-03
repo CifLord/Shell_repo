@@ -51,7 +51,7 @@ if __name__ == "__main__":
     if any([site.symbol in hubbard_u_dict.keys() for site in atoms]):
         vasp_params['ldau'] = True
         ldau_luj = {site.symbol: {} for site in atoms}
-        for el in ldauj_luj.keys():
+        for el in ldau_luj.keys():
             ldau_luj[el]['U'] = hubbard_u_dict[site.symbol] if site.symbol \
             in hubbard_u_dict.keys() else 0
             ldau_luj[el]['J'] = 0
