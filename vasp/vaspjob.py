@@ -50,12 +50,12 @@ if __name__ == "__main__":
                       'Mo': 4.38, 'Ni': 6.2, 'V': 3.25, 'W': 6.2}
     if any([site.symbol in hubbard_u_dict.keys() for site in atoms]):
         vasp_params['ldau'] = True
-        vasp_params['ldauj'] = {site.symbol: 0 for site in atoms}
-        vasp_params['ldauu'] = {site.symbol: hubbard_u_dict[site.symbol] if site.symbol \
+        vasp_params['ldauj_luj'] = {site.symbol: 0 for site in atoms}
+        vasp_params['ldauu_luj'] = {site.symbol: hubbard_u_dict[site.symbol] if site.symbol \
                                 in hubbard_u_dict.keys() else 0 for site in atoms}
         vasp_params['ldauprint'] = 0 
         vasp_params['ldautype'] = 2 
-        vasp_params['ldaul'] = {site.symbol: 2 if site.symbol \
+        vasp_params['ldaul_luj'] = {site.symbol: 2 if site.symbol \
                                 in hubbard_u_dict.keys() else 0 for site in atoms}
         # contains f-electrons
         if any(z > 56 for z in atoms.get_atomic_numbers()):
