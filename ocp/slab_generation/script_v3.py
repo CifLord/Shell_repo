@@ -129,6 +129,7 @@ def slab_generator(ase_bulk, mmi, slab_size, vacuum_size, tol=0.1, height_tol=2,
         atoms.set_tags([site.tag for site in new_slab])
         atoms.set_constraint(FixAtoms([i for i, site in enumerate(new_slab) if site.tag == 0]))
         atoms.info['miller_index'] = new_slab.miller_index
+        atoms.info['pmg_slab'] = d = json.dumps(structure.as_dict(), indent=True)
         atoms_slabs.append(atoms)
         
     return atoms_slabs
