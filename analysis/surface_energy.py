@@ -222,6 +222,15 @@ def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref
     
     return plt
 
+def preset_slabentry_se(entry_entry, ref_entries=None):
+    ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY) if not ref_entries else ref_entries
+    ref_entries_dict = {Symbol('u_%s' %(list(entry.composition.as_dict().keys())[0])): \
+                        entry.energy for entry in ref_entries}
+    se = slabentry.surface_energy(bulk_entry, ref_entries=ref_entries, referenced=False)
+    if type(se).__name__ != 'float':
+        se = se.subs(ref_entries_dict)
+    slabentry.preset_surface_energy = se
+    
 
 def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None):
     dat = list_of_dat[0]
@@ -238,13 +247,8 @@ def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None):
     # get the slab entries and preset their surface energies as functions of delta mu_O only
     slab_entries = [get_slab_entry(dat, color=hkl_color_dict[dat.miller]) for dat in list_of_dat]
     ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY)
-    ref_entries_dict = {Symbol('u_%s' %(list(entry.composition.as_dict().keys())[0])): \
-                        entry.energy for entry in ref_entries}
     for slabentry in slab_entries:
-        se = slabentry.surface_energy(bulk_entry, ref_entries=ref_entries, referenced=False)
-        if type(se).__name__ != 'float':
-            se = se.subs(ref_entries_dict)
-        slabentry.preset_surface_energy = se
+        preset_slabentry_se(slabentry)
 
     # Get the SurfaceEnergyPlotter object for doing surface energy analysis
     for gas_entry in ref_entries:
