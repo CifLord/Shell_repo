@@ -6,6 +6,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from collections import defaultdict
 from ase.constraints import FixAtoms
 import numpy as np
+import json
 
 
 def tag_surface_atoms(bulk, slab, height_tol=2):
@@ -125,11 +126,13 @@ def slab_generator(ase_bulk, mmi, slab_size, vacuum_size, tol=0.1, height_tol=2,
         new_slab.make_supercell(msuper)
 
         # ASE Atoms object format
-        atoms = AseAtomsAdaptor.get_atoms(new_slab)
+        site_props = new_slab.site_properties
+        site_props['oriented_unit_cell'] = new_slab.oriented_unit_cell.as_dict()
+        atoms = AseAtomsAdaptor.get_atoms(new_slab, **{'info': site_props})
         atoms.set_tags([site.tag for site in new_slab])
         atoms.set_constraint(FixAtoms([i for i, site in enumerate(new_slab) if site.tag == 0]))
         atoms.info['miller_index'] = new_slab.miller_index
-        atoms.info['pmg_slab'] = d = json.dumps(structure.as_dict(), indent=True)
+        atoms.info['pmg_slab'] = json.dumps(new_slab.as_dict(), indent=True)
         atoms_slabs.append(atoms)
         
     return atoms_slabs
