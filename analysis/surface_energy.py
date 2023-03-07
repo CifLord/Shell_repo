@@ -3,8 +3,6 @@ import numpy as np
 from sympy import Symbol
 from matplotlib import pylab as plt
 
-import sys
-sys.path.append(os.getcwd())
 from analysis.surface_analysis import SurfaceEnergyPlotter
 from pymatgen.core.composition import Composition
 from pymatgen.ext.matproj import MPRester
