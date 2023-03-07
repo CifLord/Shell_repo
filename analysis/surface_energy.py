@@ -222,7 +222,7 @@ def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref
     
     return plt
 
-def preset_slabentry_se(entry_entry, ref_entries=None):
+def preset_slabentry_se(slabentry, bulk_entry, ref_entries=None):
     ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY) if not ref_entries else ref_entries
     ref_entries_dict = {Symbol('u_%s' %(list(entry.composition.as_dict().keys())[0])): \
                         entry.energy for entry in ref_entries}
