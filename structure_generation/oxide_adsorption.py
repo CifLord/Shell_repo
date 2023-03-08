@@ -1,11 +1,42 @@
-from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.surface import Slab
 from pymatgen.core.structure import Molecule
 from pymatgen.util.coord import all_distances, pbc_shortest_vectors
 
+from database.generate_metadata import write_metadata_json
+from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
+
 import numpy as np
 import json, copy
+
+
+"""
+Metadata and additional API information for adsorbed slabs:
+    entry_id (str): Materials Project ID of the corresponding bulk
+    database (str): Materials database where the bulk was obtained from
+    adsorbate (str): Name_of_adsorbate
+    nads (int): Number of adsorbate molecules
+    bulk_rid (str): 20 digit random ID of the corresponding bulk e.g. 
+        bulk-h4qfsgj3432kl113DVpD
+    slab_rid (str): 20 digit random ID of the corresponding bare slab
+        e.g. slab-t43frgfgy5lFh3f3CVGD
+    ads_rid (str): 20 digit random ID of the corresponding gas phase 
+        reference of the adsorbate e.g. ads-a03Wlk2205GFXqu95ATs
+    rid (str): 20 digit random ID of the adsorbed slab e.g. 
+        adslab-zx668jolRrGdhqwWqA47
+    miller_index (tuple): Miller index of the facet 
+    bulk_formula (str): Reduced formula of the corresponding bulk 
+    bulk_composition (dict): Composition of the bulk with elements 
+        as keys and the number of atoms as values 
+    bulk_chemsys (str): Elemental components of the bulk e.g. for 
+        LiFe(PO4), the chemsys is 'Li-Fe-P-O'
+    pmg_slab (dict): Pymatgen slab object as a dictionary. Contains useful 
+        information about miller index, scale factor, bulk wyckoff positions, etc. 
+    calc_type (str): What kidn of system is this calculation for 
+        ('bare_slab', 'adsorbed_slab', 'adsorbate_in_a_box', 'bulk') 
+    func (str): The DFT functional used or the method used to obtain the 
+        energy/relaxation data (Beef-vdW, PBE, PBEsol, rPBE, GemNet-OC (for ML) etc...)
+"""
 
 # For slab saturation, 
 Ox = Molecule(["O"], [[0,0,0]])
