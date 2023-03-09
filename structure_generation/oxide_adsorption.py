@@ -8,6 +8,7 @@ from database.generate_metadata import write_metadata_json
 from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
 
 from ase.constraints import FixAtoms
+from ase import Atoms
 
 import numpy as np
 import json, copy
