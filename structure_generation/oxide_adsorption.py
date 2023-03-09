@@ -2,9 +2,12 @@ from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.surface import Slab
 from pymatgen.core.structure import Molecule
 from pymatgen.util.coord import all_distances, pbc_shortest_vectors
+from pymatgen.entries.computed_entries import ComputedStructureEntry
 
 from database.generate_metadata import write_metadata_json
 from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
+
+from ase.constraints import FixAtoms
 
 import numpy as np
 import json, copy
@@ -38,12 +41,17 @@ Metadata and additional API information for adsorbed slabs:
         energy/relaxation data (Beef-vdW, PBE, PBEsol, rPBE, GemNet-OC (for ML) etc...)
 """
 
+from database import generate_metadata
+f = generate_metadata.__file__
+bulk_oxides_20220621 = json.load(open(f.replace(f.split('/')[-1], 'bulk_oxides_20220621.json'), 'rb'))
+
 # For slab saturation, 
 Ox = Molecule(["O"], [[0,0,0]])
 OH = Molecule(["O","H"], [[0,0,0], 
-                          np.array([0, 0.99232, 0.61263])/np.linalg.norm(np.array([0, 0.99232, 0.61263]))*1.08540])
+                          np.array([0, 0.99232, 0.61263])/\
+                          np.linalg.norm(np.array([0, 0.99232, 0.61263]))*1.08540])
 
-def surface_adsorption_saturation(slab):
+def surface_adsorption_saturation(slab_data, functional='GemNet-OC'):
     """
     Gets all adsorbed slab for a slab. Will always return 6 adslabs, 
         1 O* saturated slab and 5 OH saturated slabs. 4 of the OH  
@@ -52,23 +60,80 @@ def surface_adsorption_saturation(slab):
         to minimize the O-H bondlengths with all O* and surface O atoms.
     """
     
+    # get bulk entry
+    bulk_entry = [ComputedStructureEntry.from_dict(entry) for entry in bulk_oxides_20220621 \
+                  if entry['entry_id'] == slab_data.entry_id][0]
+    
     # get pmg slab
-    init_slab = Slab.from_dict(json.loads(slab.info['pmg_slab']))
+    init_slab = Slab.from_dict(json.loads(slab_data.init_pmg_slab))
     
+    # I am assuming the atomic_numbers, pos, and 
+    # cell are corresponding to the relaxed slab?
     # convert relaxed slab to Slab
-    slab = AseAtomsAdaptor.get_structure(slab)
-    relaxed_slab = Slab(slab.lattice, slab.species, slab.frac_coords,
-                        init_slab.miller_index, init_slab.oriented_unit_cell, 
-                        init_slab.shift, init_slab.scale_factor, 
-                        site_properties=init_slab.site_properties)
-        
-    mxidegen = MXideAdsorbateGenerator(relaxed_slab, positions=['MX_adsites'], selective_dynamics=True)
-    adslabs = mxidegen.generate_adsorption_structures(OH, coverage_list='saturated', consistent_rotation=True)
-    adslabs.extend(mxidegen.generate_adsorption_structures(Ox, coverage_list='saturated', consistent_rotation=True))
-
-    adslabs.append(max_OH_interaction_adsorption(mxidegen))
+    atoms = Atoms(slab_data.atomic_numbers,
+                  positions=slab_data.pos,
+                  tags=slab_data.tags,
+                  cell=slab_data.cell.squeeze(), pbc=True)
+    relaxed_slab = AseAtomsAdaptor.get_structure(atoms)
+    relaxed_slab = Slab(relaxed_slab.lattice, relaxed_slab.species,
+                        relaxed_slab.frac_coords, init_slab.miller_index,
+                        init_slab.oriented_unit_cell, init_slab.shift, 
+                        init_slab.scale_factor, site_properties=init_slab.site_properties)
+            
+    mxidegen = MXideAdsorbateGenerator(relaxed_slab, positions=['MX_adsites'], 
+                                       selective_dynamics=True)
+    adslabs = mxidegen.generate_adsorption_structures(OH, coverage_list='saturated',
+                                                      consistent_rotation=True)
+    for adslab in adslabs:
+        setattr(adslab, 'adsorbate', 'OH')
     
-    return adslabs
+    Ostar = mxidegen.generate_adsorption_structures(Ox, coverage_list='saturated', 
+                                                    consistent_rotation=True)
+    for adslab in Ostar:
+        setattr(adslab, 'adsorbate', 'O')
+    adslabs.extend(Ostar)
+
+    OHstar = max_OH_interaction_adsorption(mxidegen)
+    setattr(OHstar, 'adsorbate', 'OH')
+    adslabs.append(OHstar)
+    
+    # Build list of Atoms objects
+    adslab_atoms = []
+    for adslab in adslabs:
+        
+        # name adsorbates
+        if adslab.adsorbate == 'O':
+            nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])
+        elif adslab.adsorbate == 'OH':
+            nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])/2
+
+        if 'ads_coord' in adslab.site_properties.keys():
+            adslab.remove_site_property('ads_coord')
+        new_tags = [] 
+        for site in adslab:
+            if site.tag == None:
+                new_tags.append(2)
+            elif site.frac_coords[2] < 0.5:
+                new_tags.append(0)
+            else:
+                new_tags.append(site.tag)
+        adslab.add_site_property('tag', new_tags)
+
+        # get metadata 
+        database = 'MP' if 'mp-' in bulk_entry.entry_id else None
+        metadata = write_metadata_json(adslab, 'adsorbed_slab', bulk_entry, 
+                                       name_of_adsorbate=adslab.adsorbate,
+                                       database=database, slab_rid=slab_data.rid,
+                                       functional=functional, additional_data={'nads': nads})
+        
+        # ASE Atoms object format, set up selective dynamics so  
+        # that only the top surface and adsorbate relax this time
+        atoms = AseAtomsAdaptor.get_atoms(adslab, **{'info': metadata})
+        atoms.set_tags(new_tags)
+        atoms.set_constraint(FixAtoms([i for i, site in enumerate(adslab) if site.tag == 0]))
+        adslab_atoms.append(atoms)
+    
+    return adslab_atoms
 
 def max_OH_interaction_adsorption(mxidegen, incr=100):
     """
@@ -88,7 +153,8 @@ def max_OH_interaction_adsorption(mxidegen, incr=100):
     satslab = mxidegen.slab.copy()
     for coord in mxidegen.MX_adsites:
 
-        transformed_ads_list = mxidegen.get_transformed_molecule_MXides(OH, [np.deg2rad(deg) for deg in np.linspace(0, 360, incr)])
+        transformed_ads_list = mxidegen.get_transformed_molecule_MXides\
+        (OH, [np.deg2rad(deg) for deg in np.linspace(0, 360, incr)])
 
         all_OH_ave_dists = []
         for i, mol in enumerate(transformed_ads_list):
@@ -97,15 +163,22 @@ def max_OH_interaction_adsorption(mxidegen, incr=100):
                 slab.append(site.species, coord+site.coords, coords_are_cartesian=True)
 
             shortest_vect = pbc_shortest_vectors(slab.lattice, slab[-1].frac_coords, 
-                                                 [slab.lattice.get_fractional_coords(c) for c in surf_Osites])
+                                                 [slab.lattice.get_fractional_coords(c) \
+                                                  for c in surf_Osites])
             all_OH_dists = []
             for i, c in enumerate(surf_Osites):
-                all_OH_dists.append(all_distances([slab[143].coords+shortest_vect[0][i]], [slab[143].coords])[0][0])
+                # Get all distances between the H site of the adsorbate
+                # and its surrrounding O sites at the surface
+                all_OH_dists.append(all_distances([slab[-1].coords+shortest_vect[0][i]],
+                                                  [slab[-1].coords])[0][0])
             all_OH_ave_dists.append(np.mean(all_OH_dists))
 
-        all_OH_ave_dists, transformed_ads_list = zip(*sorted(zip(all_OH_ave_dists, transformed_ads_list)))
+        all_OH_ave_dists, transformed_ads_list = zip(*sorted(zip(all_OH_ave_dists, 
+                                                                 transformed_ads_list)))
 
         for site in transformed_ads_list[0]:
-            satslab.append(site.species, site.coords+coord, coords_are_cartesian=True)
+            satslab.append(site.species, site.coords+coord, coords_are_cartesian=True, 
+                           properties={'tag': 2, 'surface_properties': 'adsorbate',
+                                       'selective_dynamics': [True, True, True]})
 
     return satslab

@@ -35,7 +35,7 @@ def convert_atoms_data(atoms: ase.Atoms):
     data_dict['slab_formula'] = atoms.get_chemical_formula()
     data_dict.update(atoms.info)
     
-    data = Data(**dat)
+    data = Data(**data_dict)
     data.fixed = fixed_idx
 
     return data
@@ -45,7 +45,7 @@ def generate_lmdb(atoms_list: object, pathname: str):
     
     data_list = [convert_atoms_data(atoms) for atoms in atoms_list]
 
-    pathname = pathname + '.lmdb'
+    pathname = pathname + '.lmdb' if '.lmdb' not in pathname else pathname
     db = lmdb.open(
         pathname,
         map_size=1099511627 * 2,

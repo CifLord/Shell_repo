@@ -118,7 +118,8 @@ def get_repeat_from_min_lw(slab, min_lw):
     return [xrep, yrep, zrep]
 
 
-def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1, height_tol=2, min_lw=8, functional='GemNet-OC'):
+def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1, 
+                   height_tol=2, min_lw=8, functional='GemNet-OC'):
     
     """
     Generates bare slabs of all facets and terminations up to a max Miller index 
