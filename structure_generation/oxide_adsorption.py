@@ -51,6 +51,9 @@ Ox = Molecule(["O"], [[0,0,0]])
 OH = Molecule(["O","H"], [[0,0,0], 
                           np.array([0, 0.99232, 0.61263])/\
                           np.linalg.norm(np.array([0, 0.99232, 0.61263]))*1.08540])
+OOH_up = Molecule(["O","O","H"], [[0, 0, 0], [-1.067, -0.403, 0.796],[-0.696, -0.272, 1.706]])
+OOH_down = Molecule(["O","O","H"], [[0,0,0], [-1.067, -0.403, 0.796], [-1.84688848, -0.68892498, 0.25477651]])
+ads_dict = {'O': [Ox], 'OH': [OH], 'OOH': [OOH_down, OOH_up]}
 
 def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
     """
@@ -83,17 +86,15 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
             
     mxidegen = MXideAdsorbateGenerator(relaxed_slab, positions=['MX_adsites'], 
                                        selective_dynamics=True)
-    adslabs = mxidegen.generate_adsorption_structures(OH, coverage_list=coverage_list,
-                                                      consistent_rotation=True)
-    for adslab in adslabs:
-        setattr(adslab, 'adsorbate', 'OH')
     
-    Ostar = mxidegen.generate_adsorption_structures(Ox, coverage_list=coverage_list, 
-                                                    consistent_rotation=True)
-    for adslab in Ostar:
-        setattr(adslab, 'adsorbate', 'O')
-    adslabs.extend(Ostar)
-
+    adslabs = []
+    for adsname in ads_dict.keys():
+        for mol in ads_dict[adsname]:
+            adslabs = mxidegen.generate_adsorption_structures(mol, coverage_list=coverage_list,
+                                                              consistent_rotation=True)
+            for adslab in adslabs:
+                setattr(adslab, 'adsorbate', adsname)
+    
     if coverage_list == 'saturated':
         OHstar = max_OH_interaction_adsorption(mxidegen)
         setattr(OHstar, 'adsorbate', 'OH')
@@ -108,6 +109,8 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
             nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])
         elif adslab.adsorbate == 'OH':
             nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])/2
+        elif adslab.adsorbate == 'OOH':
+            nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])/3
 
         if 'ads_coord' in adslab.site_properties.keys():
             adslab.remove_site_property('ads_coord')
