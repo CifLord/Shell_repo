@@ -1,20 +1,3 @@
-import sys, random, os, json
-
-sys.path.append('/Users/richardtran/repos/Shell_repo/')
-from structure_generation.bare_slabs import slab_generator
-from structure_generation.lmdb_generator import generate_lmdb
-from structure_generation.oxide_adsorption import surface_adsorption_saturation
-
-sys.path.append('/Users/richardtran/repos/ocp')
-from ocpmodels.datasets import LmdbDataset
-
-bulk_json = '/Users/richardtran/repos/Shell_repo/database/bulk_oxides_20220621.json'
-bulk_oxides_20220621 = json.load(open(bulk_json, 'rb'))
-bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_20220621}
-
-
-
-
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.surface import Slab
 from pymatgen.core.structure import Molecule
@@ -100,7 +83,6 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
             
     mxidegen = MXideAdsorbateGenerator(relaxed_slab, positions=['MX_adsites'], 
                                        selective_dynamics=True)
-    print('# adsites = ', len(mxidegen.MX_adsites))
     adslabs = mxidegen.generate_adsorption_structures(OH, coverage_list=coverage_list,
                                                       consistent_rotation=True)
     for adslab in adslabs:
