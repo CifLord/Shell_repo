@@ -43,7 +43,7 @@ if __name__ == "__main__":
     vasp_params = dict(xc='PBE', gga='PE', lreal=False, encut=500, ediff=1e-4, 
                        ediffg=-0.05, ispin=2, symprec=1e-10, isif=0, nsw=300,
                        lwave=False, ismear=0, sigma=0.2, isym=0, lcharg=False, 
-                       lvtot=False, ibrion=2, potim=0.5, nelm=150, ialgo=48, npar=4)
+                       lvtot=False, ibrion=2, potim=0.5, nelm=300, ialgo=48, npar=4)
     
     # add Hubbard U corrections
     hubbard_u_dict = {'Co': 3.32, 'Cr': 3.7, 'Fe': 5.3, 'Mn': 3.9, 
