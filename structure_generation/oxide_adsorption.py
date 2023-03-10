@@ -1,3 +1,20 @@
+import sys, random, os, json
+
+sys.path.append('/Users/richardtran/repos/Shell_repo/')
+from structure_generation.bare_slabs import slab_generator
+from structure_generation.lmdb_generator import generate_lmdb
+from structure_generation.oxide_adsorption import surface_adsorption_saturation
+
+sys.path.append('/Users/richardtran/repos/ocp')
+from ocpmodels.datasets import LmdbDataset
+
+bulk_json = '/Users/richardtran/repos/Shell_repo/database/bulk_oxides_20220621.json'
+bulk_oxides_20220621 = json.load(open(bulk_json, 'rb'))
+bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_20220621}
+
+
+
+
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.surface import Slab
 from pymatgen.core.structure import Molecule
@@ -52,7 +69,7 @@ OH = Molecule(["O","H"], [[0,0,0],
                           np.array([0, 0.99232, 0.61263])/\
                           np.linalg.norm(np.array([0, 0.99232, 0.61263]))*1.08540])
 
-def surface_adsorption_saturation(slab_data, functional='GemNet-OC'):
+def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
     """
     Gets all adsorbed slab for a slab. Will always return 6 adslabs, 
         1 O* saturated slab and 5 OH saturated slabs. 4 of the OH  
@@ -83,20 +100,22 @@ def surface_adsorption_saturation(slab_data, functional='GemNet-OC'):
             
     mxidegen = MXideAdsorbateGenerator(relaxed_slab, positions=['MX_adsites'], 
                                        selective_dynamics=True)
-    adslabs = mxidegen.generate_adsorption_structures(OH, coverage_list='saturated',
+    print('# adsites = ', len(mxidegen.MX_adsites))
+    adslabs = mxidegen.generate_adsorption_structures(OH, coverage_list=coverage_list,
                                                       consistent_rotation=True)
     for adslab in adslabs:
         setattr(adslab, 'adsorbate', 'OH')
     
-    Ostar = mxidegen.generate_adsorption_structures(Ox, coverage_list='saturated', 
+    Ostar = mxidegen.generate_adsorption_structures(Ox, coverage_list=coverage_list, 
                                                     consistent_rotation=True)
     for adslab in Ostar:
         setattr(adslab, 'adsorbate', 'O')
     adslabs.extend(Ostar)
 
-    OHstar = max_OH_interaction_adsorption(mxidegen)
-    setattr(OHstar, 'adsorbate', 'OH')
-    adslabs.append(OHstar)
+    if coverage_list == 'saturated':
+        OHstar = max_OH_interaction_adsorption(mxidegen)
+        setattr(OHstar, 'adsorbate', 'OH')
+        adslabs.append(OHstar)
     
     # Build list of Atoms objects
     adslab_atoms = []
