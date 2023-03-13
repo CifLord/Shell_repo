@@ -3,6 +3,7 @@ from pymatgen.core.surface import Slab
 from pymatgen.core.structure import Molecule
 from pymatgen.util.coord import all_distances, pbc_shortest_vectors
 from pymatgen.entries.computed_entries import ComputedStructureEntry
+from pymatgen.core.periodic_table import Element
 
 from database.generate_metadata import write_metadata_json
 from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
@@ -51,8 +52,12 @@ Ox = Molecule(["O"], [[0,0,0]])
 OH = Molecule(["O","H"], [[0,0,0], 
                           np.array([0, 0.99232, 0.61263])/\
                           np.linalg.norm(np.array([0, 0.99232, 0.61263]))*1.08540])
-OOH_up = Molecule(["O","O","H"], [[0, 0, 0], [-1.067, -0.403, 0.796],[-0.696, -0.272, 1.706]])
-OOH_down = Molecule(["O","O","H"], [[0,0,0], [-1.067, -0.403, 0.796], [-1.84688848, -0.68892498, 0.25477651]])
+
+# MXideGenerator is set up to bind all O sites in the adsorbate one by one. To save 
+# time and avoid this, we will temporarily set the middle O site in OOH to N so that 
+# only the O site at (0,0,0) is bonded. Then we will substite N with O back into the adslab
+OOH_up = Molecule(["O","N","H"], [[0, 0, 0], [-1.067, -0.403, 0.796],[-0.696, -0.272, 1.706]])
+OOH_down = Molecule(["O","N","H"], [[0,0,0], [-1.067, -0.403, 0.796], [-1.84688848, -0.68892498, 0.25477651]])
 ads_dict = {'O': [Ox], 'OH': [OH], 'OOH': [OOH_down, OOH_up]}
 
 def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
@@ -87,22 +92,25 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
     mxidegen = MXideAdsorbateGenerator(relaxed_slab, positions=['MX_adsites'], 
                                        selective_dynamics=True)
     
-    adslabs = []
+    all_adslabs = []
     for adsname in ads_dict.keys():
         for mol in ads_dict[adsname]:
             adslabs = mxidegen.generate_adsorption_structures(mol, coverage_list=coverage_list,
                                                               consistent_rotation=True)
+            print(mol.composition.reduced_formula, len(adslabs))
             for adslab in adslabs:
+                adslab.replace_species({Element('N'): Element('O')})
                 setattr(adslab, 'adsorbate', adsname)
-    
+            all_adslabs.extend(adslabs)
+
     if coverage_list == 'saturated':
         OHstar = max_OH_interaction_adsorption(mxidegen)
         setattr(OHstar, 'adsorbate', 'OH')
-        adslabs.append(OHstar)
+        all_adslabs.append(OHstar)
     
     # Build list of Atoms objects
     adslab_atoms = []
-    for adslab in adslabs:
+    for adslab in all_adslabs:
         
         # name adsorbates
         if adslab.adsorbate == 'O':
