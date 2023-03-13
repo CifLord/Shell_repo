@@ -37,8 +37,14 @@ if __name__ == "__main__":
     args = read_options()
     os.environ['VASP_EXEC']='vasp_std'
 
-    atoms = read('POSCAR')
-    
+    if os.isfile('CONTCAR'):
+        try:
+            atoms = read('CONTCAR')
+        except:
+            atoms = read('POSCAR')
+    else:
+        atoms = read('POSCAR')
+
     # default settings for oxide
     vasp_params = dict(xc='PBE', gga='PE', lreal=False, encut=500, ediff=1e-4, 
                        ediffg=-0.05, ispin=2, symprec=1e-10, isif=0, nsw=300,
