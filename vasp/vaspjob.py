@@ -37,7 +37,7 @@ if __name__ == "__main__":
     args = read_options()
     os.environ['VASP_EXEC']='vasp_std'
 
-    if os.isfile('CONTCAR'):
+    if os.path.isfile('CONTCAR'):
         try:
             atoms = read('CONTCAR')
         except:
