@@ -157,7 +157,7 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
         self.relax_tol = relax_tol
         self.bulk = slab.oriented_unit_cell.copy()
 
-        self.bondlength = self.get_bond_length(max_r=max_r, tol=tol)
+        self.bondlength_dict = self.get_bond_length(max_r=max_r, tol=tol)
 
         # Get surface metal sites 
         self.surf_metal_sites = [site.coords for site in self.slab if site.surface_properties == 'surface' and 
@@ -188,17 +188,20 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
             sym = str(w) + str(eq[i])
             if sym not in bulk_wyckoff_cn.keys():
                 site = self.bulk[i]
+                
                 if site.species_string == self.X:
-                    bulk_wyckoff_cn[sym] = len([nn for nn in self.bulk.get_neighbors(site, self.bondlength)
+                    bondlength = max(self.bondlength_dict.values())
+                    bulk_wyckoff_cn[sym] = len([nn for nn in self.bulk.get_neighbors(site, bondlength)
                                                 if nn.species_string != self.X])
                 else:
-                    bulk_wyckoff_cn[sym] = len([nn for nn in self.bulk.get_neighbors(site, self.bondlength)
+                    bondlength = self.bondlength_dict[site.species_string]
+                    bulk_wyckoff_cn[sym] = len([nn for nn in self.bulk.get_neighbors(site, bondlength)
                                                 if nn.species_string == self.X])
         self.bulk_wyckoff_cn = bulk_wyckoff_cn
         if ads_dist:
             self.min_adsorbate_dist = ads_dist
         elif ads_dist_is_blength:
-            self.min_adsorbate_dist = self.bondlength
+            self.min_adsorbate_dist = max(self.bondlength_dict.values())
         else:
             self.min_adsorbate_dist = self.calculate_min_adsorbate_dist()
         self.sm = StructureMatcher()
@@ -215,19 +218,22 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
             max_r (float in Å): Max radius from nonmetal site to look for neighbors, defaults to 6Å
             tol (float): Percentage tolerance of determined bond length to account for numerical
             errors or neighboring sites slightly further away
-            
+
         Returns: 
             M-O bond length
         """
-        
-        min_dists = []
+
+        min_dists = {}
         for site in self.bulk:
             if site.species_string != self.X:
+                if site.species_string not in min_dists.keys():
+                    min_dists[site.species_string] = []
                 ndists = [nn.distance(site) for nn in self.bulk.get_neighbors(site, max_r) 
                              if nn.species_string == self.X]
                 ndists = [2] if not ndists else ndists
-                min_dists.append(min(ndists))
-        return min(min_dists) * tol
+                min_dists[site.species_string].append(min(ndists))
+
+        return {el: min(min_dists[el])*tol for el in min_dists.keys()}
     
     ########################## NEED A BETTER ALGO FOR ADSORBATE DISTANCES ##########################
     
@@ -264,7 +270,8 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
         for site in pseudo_slab:
             if site.surface_properties == 'pseudo' and site.species_string == self.X \
                     and site.frac_coords[2] > self.slab.center_of_mass[2]:
-                if len([nn for nn in pseudo_slab.get_neighbors(site, self.bondlength)
+                bondlength = self.bondlength_dict[site.species_string]
+                if len([nn for nn in pseudo_slab.get_neighbors(site, bondlength)
                         if nn.species_string != self.X]) == max(self.bulk_wyckoff_cn.keys()):
                     continue
 
@@ -483,31 +490,36 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
                  and site.surface_properties == 'surface']
 
         for surfsite in self.slab:
-            # consider cations (metal) in slab and check whether or not the metal site is
-            # undercoordinated by comparing it to the corresponding site in a bulk structure 
-            # (using the Wyckoff symbol). If it is, there are Ovac we can treat as adsorption sites
+            # consider cations (metal) in slab and check whether or not 
+            # the metal site is undercoordinated by comparing it to the 
+            # corresponding site in a bulk structure (using the Wyckoff 
+            # symbol). If it is, there are Ovac we can treat as adsites
             if surfsite.species_string != self.X and surfsite.frac_coords[2] > com[2]:
-                surf_nn = self.slab.get_neighbors(surfsite, self.bondlength)
+                bondlength = self.bondlength_dict[surfsite.species_string]
+                surf_nn = self.slab.get_neighbors(surfsite, bondlength)
                 for bulksite in self.bulk:
                     if bulksite.bulk_wyckoff == surfsite.bulk_wyckoff and \
                                     bulksite.species_string == surfsite.species_string:
                 
-                        cn = len(self.bulk.get_neighbors(bulksite, self.bondlength))
+                        cn = len(self.bulk.get_neighbors(bulksite, bondlength))
                         break
                 if len(surf_nn) == cn:
                     continue
                 
-                # If the current metal site we are considering is undercoordinated, now we 
-                # find a corresponding site of the same bulk Wyckoff in the slab that is fully
-                # coordinated and superimpose the missing X positions on the undercoordinated
-                # cation in order to identify the positions of the anion vacancy
+                # If the current metal site we are considering is undercoordinated, 
+                # now we find a corresponding site of the same bulk Wyckoff in the 
+                # slab that is fully coordinated and superimpose the missing X 
+                # positions on the undercoordinated cation in order to identify 
+                # the positions of the anion vacancy
                 for site in self.slab:
-
-                    bulk_frac_coords = [nn.frac_coords for nn in self.slab.get_neighbors(site, self.bondlength)]
+                    bondlength = self.bondlength_dict[site.species_string]
+                    bulk_frac_coords = [nn.frac_coords for nn in \
+                                        self.slab.get_neighbors(site, bondlength)]
                     if len(bulk_frac_coords) == cn:
                         translate = surfsite.frac_coords - site.frac_coords
-                        # check that all the positions of the vacancies for our undercoordinated  
-                        # site match the positions of the fully coordinated site when translated
+                        # check that all the positions of the vacancies 
+                        # for our undercoordinated site match the positions 
+                        # of the fully coordinated site when translated
                         if all([in_coord_list_pbc(bulk_frac_coords,
                                                   nn.frac_coords - translate, 
                                                   atol=self.relax_tol) for nn in surf_nn]):
@@ -534,7 +546,7 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
         for i, site in enumerate(self.slab):
             # Find equivalent sites for top surface M-site only
             if site.frac_coords[2] > com and \
-                            site.surface_properties == 'surface' and site.species_string == self.X:
+            site.surface_properties == 'surface' and site.species_string == self.X:
                 # Get the coordinate X-sites on the top too so we
                 # can map to an equivalent environment at the bottom
                 adsites.append(site.coords)
@@ -544,11 +556,11 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
     
     def unit_normal_vector(self, pt1, pt2, pt3):
         """
-        From three positions on the surface, calculate the vector normal to the plane 
-            of those positions. This will make it easier to position specific adsorbates 
-            parallel to specific subfacets of the surface like in steps and terraces, 
-            similar to the algorithm proposed in CatKit. pt1, pt2, pt3 are three points 
-            that define a plane which we calculate the normal vector for
+        From three positions on the surface, calculate the vector normal to the 
+            plane of those positions. This will make it easier to position specific 
+            adsorbates parallel to specific subfacets of the surface like in steps 
+            and terraces, similar to the algorithm proposed in CatKit. pt1, pt2, 
+            pt3 are three points that define a plane which we calculate the normal vector for
         """
         
         # These two vectors are in the plane
@@ -658,7 +670,7 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
             # now using the MM coord pairs as the base of our trapezoid, 
             # find the height of the trapezoid represented as a vector.
             tri_base = (min_dist - OO_length)/2 # half base of isosceles triangle
-            h = (self.bondlength**2 - tri_base**2)**(1/2) # solve for h
+            h = (max(self.bondlength_dict.values())**2 - tri_base**2)**(1/2) # solve for h
             
             # using the height, MM midpoint, the unit normal vector and 
             # dimer length, solve for the two positions of the dimer coupling
