@@ -94,6 +94,8 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
     
     all_adslabs = []
     for adsname in ads_dict.keys():
+        if coverage_list == 'saturated' and adsname == 'OOH':
+            continue
         for mol in ads_dict[adsname]:
             adslabs = mxidegen.generate_adsorption_structures(mol, coverage_list=coverage_list,
                                                               consistent_rotation=True)
