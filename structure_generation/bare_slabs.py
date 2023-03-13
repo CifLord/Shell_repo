@@ -39,7 +39,8 @@ from database import generate_metadata
 f = generate_metadata.__file__
 bulk_oxides_20220621 = json.load(open(f.replace(f.split('/')[-1], 'bulk_oxides_20220621.json'), 'rb'))
 
-def tag_surface_atoms(bulk, slab, height_tol=2):
+
+def tag_surface_atoms(bulk, slab, height_tol=2, count_undercoordination=False):
     '''
     Sets the tags of an `ase.Atoms` object. Any atom that we consider a "bulk"
     atom will have a tag of 0, and any atom that we consider a "surface" atom
@@ -50,10 +51,107 @@ def tag_surface_atoms(bulk, slab, height_tol=2):
         bulk_atoms      `ase.Atoms` format of the respective bulk structure
         surface_atoms   The surface where you are trying to find surface sites in
                         `ase.Atoms` format
+        count_undercoordination: Whether or not to consider undercoordination in 
+            identifying surface sites. Might make the algorithm take longer
     '''
     
+    # oxid_guess = bulk.composition.oxi_state_guesses()
+    # oxid_guess = oxid_guess or [{e.symbol: 0 for e in bulk.composition}]
+    # bulk.add_oxidation_state_by_element(oxid_guess[0])
+    # slab.add_oxidation_state_by_element(oxid_guess[0])
     height_tags = find_surface_atoms_by_height(slab, height_tol=height_tol)
-    slab.add_site_property('tag', height_tags)
+    if count_undercoordination:
+        voronoi_tags = find_surface_atoms_with_voronoi(bulk, slab)
+    else:
+        voronoi_tags = [0]*len(height_tags)
+    
+    # If either of the methods consider an atom a "surface atom", then tag it as such.
+    tags = [max(v_tag, h_tag) for v_tag, h_tag in zip(voronoi_tags, height_tags)]                
+    slab.add_site_property('tag', tags)
+    
+    
+def calculate_coordination_of_bulk_atoms(bulk):
+    '''
+    Finds all unique atoms in a bulk structure and then determines their
+    coordination number. Then parses these coordination numbers into a
+    dictionary whose keys are the elements of the atoms and whose values are
+    their possible coordination numbers.
+    For example: `bulk_cns = {'Pt': {3., 12.}, 'Pd': {12.}}`
+    Arg:
+        bulk_atoms  An `ase.Atoms` object of the bulk structure.
+    Returns:
+        bulk_cn_dict    A defaultdict whose keys are the elements within
+                        `bulk_atoms` and whose values are a set of integers of the
+                        coordination numbers of that element.
+    '''
+    voronoi_nn = VoronoiNN(tol=0.1)  # 0.1 chosen for better detection
+
+    # Object type conversion so we can use Voronoi
+    bulk = bulk.get_primitive_structure()
+    sga = SpacegroupAnalyzer(bulk)
+    sym_struct = sga.get_symmetrized_structure()
+
+    # We'll only loop over the symmetrically distinct sites for speed's sake
+    bulk_cn_dict = defaultdict(set)
+    cnn = CrystalNN()
+    for idx in sym_struct.equivalent_indices:
+        site = sym_struct[idx[0]]
+        cn = voronoi_nn.get_cn(sym_struct, idx[0], use_weights=True)
+        
+        cn = round(cn, 5)
+        cn = len(cnn.get_nn_info(sym_struct, idx[0]))
+        bulk_cn_dict[site.species_string].add(cn)
+    return bulk_cn_dict
+
+    
+def find_surface_atoms_with_voronoi(bulk, slab):
+    '''
+    Labels atoms as surface or bulk atoms according to their coordination
+    relative to their bulk structure. If an atom's coordination is less than it
+    normally is in a bulk, then we consider it a surface atom. We calculate the
+    coordination using pymatgen's Voronoi algorithms.
+    Note that if a single element has different sites within a bulk and these
+    sites have different coordinations, then we consider slab atoms
+    "under-coordinated" only if they are less coordinated than the most under
+    undercoordinated bulk atom. For example:  Say we have a bulk with two Cu
+    sites. One site has a coordination of 12 and another a coordination of 9.
+    If a slab atom has a coordination of 10, we will consider it a bulk atom.
+    Args:
+        bulk_atoms      `ase.Atoms` of the bulk structure the surface was cut
+                        from.
+        surface_atoms   `ase.Atoms` of the surface
+    Returns:
+        tags    A list of 0's and 1's whose indices align with the atoms in
+                `surface_atoms`. 0's indicate a bulk atom and 1 indicates a
+                surface atom.
+    '''
+    # Initializations
+    center_of_mass = calculate_center_of_mass(slab)
+    bulk_cn_dict = calculate_coordination_of_bulk_atoms(bulk)
+    voronoi_nn = VoronoiNN(tol=0.1)  # 0.1 chosen for better detection
+    cnn = CrystalNN()
+    tags = []
+    for idx, site in enumerate(slab):
+
+        # Tag as surface atom only if it's above the center of mass
+        if site.frac_coords[2] > center_of_mass[2]:
+            try:
+                # Tag as surface if atom is under-coordinated
+                cn = voronoi_nn.get_cn(slab, idx, use_weights=True)
+                cn = round(cn, 5)
+                cn = len(cnn.get_nn_info(slab, idx))
+                if cn < min(bulk_cn_dict[site.species_string]):
+                    tags.append(1)
+                else:
+                    tags.append(0)
+
+            # Tag as surface if we get a pathological error
+            except RuntimeError:
+                tags.append(1)
+        else:
+            tags.append(0)
+
+    return tags
 
 
 def calculate_center_of_mass(struct):
@@ -64,6 +162,7 @@ def calculate_center_of_mass(struct):
     center_of_mass = np.average(struct.frac_coords,
                                 weights=weights, axis=0)
     return center_of_mass
+
 
 def find_surface_atoms_by_height(slab, height_tol=2):
     '''
@@ -119,7 +218,7 @@ def get_repeat_from_min_lw(slab, min_lw):
 
 
 def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1, 
-                   height_tol=2, min_lw=8, functional='GemNet-OC'):
+                   height_tol=2, min_lw=8, functional='GemNet-OC', count_undercoordination=False):
     
     """
     Generates bare slabs of all facets and terminations up to a max Miller index 
@@ -139,7 +238,7 @@ def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1,
     for slab in all_slabs:
         
         new_slab = slab.copy()
-        tag_surface_atoms(bulk, new_slab, height_tol=height_tol)
+        tag_surface_atoms(bulk, new_slab, height_tol=height_tol, count_undercoordination=False)
                         
         # Get the symmetry operations to identify equivalent sites on both sides
         new_slab.add_site_property('original_index', [i for i, site in enumerate(new_slab)])
