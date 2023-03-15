@@ -1,9 +1,10 @@
-import random, os
+import random, os, json
 import numpy as np
 from sympy import Symbol
 from matplotlib import pylab as plt
 
 from analysis.surface_analysis import SurfaceEnergyPlotter
+from pymatgen.core.surface import Slab, Lattice
 from pymatgen.core.composition import Composition
 from pymatgen.ext.matproj import MPRester
 
@@ -127,16 +128,18 @@ def random_color_generator():
         color[ind] = np.random.uniform(0, 1)
     return color
 
-def get_slab_entry(dat, color=None):
-
-    atoms=Atoms(dat.atomic_numbers,
-                positions=dat.pos,
-                tags=dat.tags,
-                cell=dat.cell.squeeze(), pbc=True)
+def get_slab_object(dat, relaxed=False):
     
-    return SlabEntry(AseAtomsAdaptor.get_structure(atoms), dat.y, dat.miller, 
-                     label=dat.miller, color=color)
+    slab = Slab.from_dict(json.loads(dat.init_pmg_slab))
+    coords = dat.pos_relaxed if relaxed else dat.pos 
+    return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, slab.miller_index, slab.oriented_unit_cell, 
+                slab.shift, slab.scale_factor, coords_are_cartesian=True, site_properties=slab.site_properties)
 
+def get_slab_entry(dat, color=None, relaxed=False):
+
+    slab = get_slab_object(dat, relaxed=relaxed)
+    return SlabEntry(slab, dat.y, slab.miller_index, 
+                     label=slab.miller_index, color=color)
 
 def get_surface_energy(dat, ref_entries=None):
     bulk_entry = ComputedEntry(dat.bulk_formula, dat.bulk_energy)
@@ -184,9 +187,9 @@ def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref
             c = 'g' if se.coeff('delu_O') < 0 else 'b'
             se = se.subs('delu_O', dmu)
             
-        if dat.miller not in hkl_to_se_dict.keys():
-            hkl_to_se_dict[dat.miller] = []
-        hkl_to_se_dict[dat.miller].append([c, se])
+        if dat.miller_index not in hkl_to_se_dict.keys():
+            hkl_to_se_dict[dat.miller_index] = []
+        hkl_to_se_dict[dat.miller_index].append([c, se])
         
     # sort x-axis based on normalized hkl
     hkl_norms = [np.linalg.norm(hkl) for hkl in hkl_to_se_dict.keys()]
@@ -240,10 +243,10 @@ def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None):
     # color code Miller indices
     hkl_color_dict = {}
     for dat in list_of_dat:
-        hkl_color_dict[dat.miller] = random_color_generator()
+        hkl_color_dict[dat.miller_index] = random_color_generator()
             
     # get the slab entries and preset their surface energies as functions of delta mu_O only
-    slab_entries = [get_slab_entry(dat, color=hkl_color_dict[dat.miller]) for dat in list_of_dat]
+    slab_entries = [get_slab_entry(dat, color=hkl_color_dict[dat.miller_index]) for dat in list_of_dat]
     ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY)
     for slabentry in slab_entries:
         preset_slabentry_se(slabentry)

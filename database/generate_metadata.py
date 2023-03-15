@@ -1,4 +1,3 @@
-# from atomate.vasp.drones import VaspDrone 
 import json, random, string, os, glob, shutil
 import numpy as np
 
@@ -8,6 +7,24 @@ from pymatgen.analysis.surface_analysis import *
 
 from pymongo import MongoClient
 from matplotlib import pylab as plt
+
+
+
+
+class NpEncoder(json.JSONEncoder):
+
+    #To solve the error "Object of type int32 is not JSON serializable"
+    #Introduce this class to the "d = json.dumps(structure.as_dict(), cls=NpEncoder, indent=True)"
+    #by Liqiang
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
+        
         
 def write_metadata_json(structure, calc_type, bulk_entry, fname=None, 
                         name_of_adsorbate=None, database=None, bulk_rid=None, 
@@ -19,7 +36,8 @@ def write_metadata_json(structure, calc_type, bulk_entry, fname=None,
                                                               + string.digits) for _ in range(20))
     
     metadata = {}
-    d = json.dumps(structure.as_dict(), indent=True)
+    # Liqiang add the cls=NpEncoder
+    d = json.dumps(structure.as_dict(), cls=NpEncoder, indent=True)
     if calc_type != 'adsorbate_in_a_box':
         bulk_formula = bulk_entry.composition.formula
         bulk_reduced_formula = bulk_entry.composition.reduced_formula
