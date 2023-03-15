@@ -512,7 +512,10 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
                 # positions on the undercoordinated cation in order to identify 
                 # the positions of the anion vacancy
                 for site in self.slab:
-                    bondlength = self.bondlength_dict[site.species_string]
+                    if site.species_string == self.X:
+                        bondlength = max(self.bondlength_dict.values())
+                    else:
+                        bondlength = self.bondlength_dict[site.species_string]
                     bulk_frac_coords = [nn.frac_coords for nn in \
                                         self.slab.get_neighbors(site, bondlength)]
                     if len(bulk_frac_coords) == cn:
