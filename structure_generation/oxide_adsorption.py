@@ -80,7 +80,7 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
     # cell are corresponding to the relaxed slab?
     # convert relaxed slab to Slab
     atoms = Atoms(slab_data.atomic_numbers,
-                  positions=slab_data.pos,
+                  positions=slab_data.pos_relaxed,
                   tags=slab_data.tags,
                   cell=slab_data.cell.squeeze(), pbc=True)
     relaxed_slab = AseAtomsAdaptor.get_structure(atoms)
