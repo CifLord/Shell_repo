@@ -186,13 +186,13 @@ def max_OH_interaction_adsorption(mxidegen, incr=100):
                 site.frac_coords[-1] > 0.5, site.species_string == 'O']):
             surf_Osites.append(site.coords)
 
+    transformed_ads_list = mxidegen.get_transformed_molecule_MXides\
+    (OH, [np.deg2rad(deg) for deg in np.linspace(0, 360, incr)])
+
     satslab = mxidegen.slab.copy()
     for coord in mxidegen.MX_adsites:
-
-        transformed_ads_list = mxidegen.get_transformed_molecule_MXides\
-        (OH, [np.deg2rad(deg) for deg in np.linspace(0, 360, incr)])
-
         all_OH_ave_dists = []
+        
         for i, mol in enumerate(transformed_ads_list):
             slab = mxidegen.slab.copy()
             for site in mol:
