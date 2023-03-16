@@ -486,8 +486,7 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
         com = self.slab.center_of_mass
         adsites, partitions = [], []
         # get all the anions (oxygen)
-        surfX = [site.frac_coords for site in self.slab if site.species_string == self.X 
-                 and site.surface_properties == 'surface']
+        surfX = [site.frac_coords for site in self.slab if site.species_string == self.X]
 
         for surfsite in self.slab:
             # consider cations (metal) in slab and check whether or not 
