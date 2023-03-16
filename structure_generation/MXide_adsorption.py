@@ -496,14 +496,16 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
             # symbol). If it is, there are Ovac we can treat as adsites
             if surfsite.species_string != self.X and surfsite.frac_coords[2] > com[2]:
                 bondlength = self.bondlength_dict[surfsite.species_string]
-                surf_nn = self.slab.get_neighbors(surfsite, bondlength)
+                surf_nn = [site for site in self.slab.get_neighbors(surfsite, bondlength) if site.species_string == self.X]
+                
+                # get the bulk CN for corresponding Wyckoff site
                 for bulksite in self.bulk:
                     if bulksite.bulk_wyckoff == surfsite.bulk_wyckoff and \
                                     bulksite.species_string == surfsite.species_string:
-                
-                        cn = len(self.bulk.get_neighbors(bulksite, bondlength))
+                        cn = len([site for site in self.bulk.get_neighbors(bulksite, bondlength) if site.species_string == self.X])
                         break
                 if len(surf_nn) == cn:
+                    # skip if surface site is fully coordinated according to bulk CN
                     continue
                 
                 # If the current metal site we are considering is undercoordinated, 
@@ -513,11 +515,12 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
                 # the positions of the anion vacancy
                 for site in self.slab:
                     if site.species_string == self.X:
-                        bondlength = max(self.bondlength_dict.values())
+                        continue
                     else:
                         bondlength = self.bondlength_dict[site.species_string]
+                    # get the metal site in slab that has the same CN as a metal site in bulk
                     bulk_frac_coords = [nn.frac_coords for nn in \
-                                        self.slab.get_neighbors(site, bondlength)]
+                                        self.slab.get_neighbors(site, bondlength) if nn.species_string == self.X]
                     if len(bulk_frac_coords) == cn:
                         translate = surfsite.frac_coords - site.frac_coords
                         # check that all the positions of the vacancies 

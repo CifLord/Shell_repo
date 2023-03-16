@@ -88,9 +88,14 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
                         relaxed_slab.frac_coords, init_slab.miller_index,
                         init_slab.oriented_unit_cell, init_slab.shift, 
                         init_slab.scale_factor, site_properties=init_slab.site_properties)
-            
-    mxidegen = MXideAdsorbateGenerator(relaxed_slab, positions=['MX_adsites'], 
-                                       selective_dynamics=True)
+
+    mxidegen = MXideAdsorbateGenerator(init_slab, positions=['MX_adsites'], 
+                                       selective_dynamics=True, repeat=[1,1,1])
+    
+    props = init_mxidegen.slab.site_properties
+    for k in props.keys():
+        if k not in relaxed_slab.site_properties.keys():
+            relaxed_slab.add_site_property(k, props[k])
     
     all_adslabs = []
     for adsname in ads_dict.keys():
@@ -109,10 +114,21 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
         OHstar = max_OH_interaction_adsorption(mxidegen)
         setattr(OHstar, 'adsorbate', 'OH')
         all_adslabs.append(OHstar)
+        
+    # superimpose adsites onto relaxed_slab
+    relaxed_adslabs = []
+    for adslab in all_adslabs:
+        rel_slabs = relaxed_slab.copy()
+        for site in adslab:
+            if site.surface_properties == 'adsorbate':
+                rel_slabs.append(site.species_string, site.frac_coords, properties=site.properties)
+        setattr(rel_slabs, 'adsorbate', adslab.adsorbate)
+        
+        relaxed_adslabs.append(rel_slabs)
     
     # Build list of Atoms objects
     adslab_atoms = []
-    for adslab in all_adslabs:
+    for adslab in relaxed_adslabs:
         
         # name adsorbates
         if adslab.adsorbate == 'O':
@@ -122,8 +138,6 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
         elif adslab.adsorbate == 'OOH':
             nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])/3
 
-        if 'ads_coord' in adslab.site_properties.keys():
-            adslab.remove_site_property('ads_coord')
         new_tags = [] 
         for site in adslab:
             if site.tag == None:
