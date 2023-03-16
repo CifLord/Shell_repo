@@ -120,19 +120,7 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
         OHstar = max_OH_interaction_adsorption(relslab, mxidegen)
         setattr(OHstar, 'adsorbate', 'OH')
         relaxed_adslabs['OH'].append(OHstar)
-        
-    # # superimpose adsites onto relaxed_slab
-    # relaxed_adslabs = {}
-    # for adslab in all_adslabs:
-    #     rel_slabs = relaxed_slab.copy()
-    #     for site in adslab:
-    #         if site.surface_properties == 'adsorbate':
-    #             rel_slabs.append(site.species_string, site.frac_coords, properties=site.properties)
-    #     setattr(rel_slabs, 'adsorbate', adslab.adsorbate)
-    #     if rel_slabs.adsorbate not in relaxed_adslabs.keys():
-    #         relaxed_adslabs[rel_slabs.adsorbate] = []
-    #     relaxed_adslabs[rel_slabs.adsorbate].append(rel_slabs)
-        
+                
     sm = StructureMatcher()
     relaxed_adslabs_list = []
     for ads in relaxed_adslabs.keys():

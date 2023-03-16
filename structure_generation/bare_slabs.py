@@ -8,6 +8,7 @@ from ase.constraints import FixAtoms
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 
 from database.generate_metadata import write_metadata_json
+from structure_generation.MXide_adsorption import make_superslab_with_partition
 
 import numpy as np
 import json
@@ -260,8 +261,7 @@ def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1,
         tags = [0 if i not in new_tags else 1 for i, site in enumerate(new_slab)]    
         new_slab.add_site_property('tag', tags)
         
-        msuper = get_repeat_from_min_lw(new_slab, min_lw)
-        new_slab.make_supercell(msuper)
+        new_slab = make_superslab_with_partition(new_slab, msuper)
 
         # get metadata 
         database = 'MP' if 'mp-' in entry_id else None

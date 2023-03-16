@@ -100,7 +100,7 @@ class MXideAdsorbateGenerator(AdsorbateSiteFinder):
 
     def __init__(self, slab, selective_dynamics=False,
                  height=1.25, mi_vec=None, repeat=None, min_lw=8.0, 
-                 verbose=True, max_r=6, tol=1.1, adsorb_both_sides=False,
+                 verbose=True, max_r=6, tol=1.2, adsorb_both_sides=False,
                  ads_dist_is_blength=True, ads_dist=False, r=None, relax_tol=1e-5, 
                  positions=['MX_adsites', 'mvk_adsites']):
 
