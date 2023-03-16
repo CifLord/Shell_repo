@@ -4,6 +4,7 @@ from pymatgen.core.structure import Molecule
 from pymatgen.util.coord import all_distances, pbc_shortest_vectors
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 from pymatgen.core.periodic_table import Element
+from pymatgen.analysis.structure_matcher import StructureMatcher
 
 from database.generate_metadata import write_metadata_json
 from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
@@ -92,7 +93,7 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
     mxidegen = MXideAdsorbateGenerator(init_slab, positions=['MX_adsites'], 
                                        selective_dynamics=True, repeat=[1,1,1])
     
-    props = init_mxidegen.slab.site_properties
+    props = mxidegen.slab.site_properties
     for k in props.keys():
         if k not in relaxed_slab.site_properties.keys():
             relaxed_slab.add_site_property(k, props[k])
@@ -116,19 +117,25 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
         all_adslabs.append(OHstar)
         
     # superimpose adsites onto relaxed_slab
-    relaxed_adslabs = []
+    relaxed_adslabs = {}
     for adslab in all_adslabs:
         rel_slabs = relaxed_slab.copy()
         for site in adslab:
             if site.surface_properties == 'adsorbate':
                 rel_slabs.append(site.species_string, site.frac_coords, properties=site.properties)
         setattr(rel_slabs, 'adsorbate', adslab.adsorbate)
+        if rel_slabs.adsorbate not in relaxed_adslabs.keys():
+            relaxed_adslabs[rel_slabs.adsorbate] = []
+        relaxed_adslabs[rel_slabs.adsorbate].append(rel_slabs)
         
-        relaxed_adslabs.append(rel_slabs)
+    sm = StructureMatcher()
+    relaxed_adslabs_list = []
+    for ads in relaxed_adslabs.keys():
+        relaxed_adslabs_list.extend([g[0] for g in sm.group_structures(relaxed_adslabs[ads])])
     
     # Build list of Atoms objects
     adslab_atoms = []
-    for adslab in relaxed_adslabs:
+    for adslab in relaxed_adslabs_list:
         
         # name adsorbates
         if adslab.adsorbate == 'O':
