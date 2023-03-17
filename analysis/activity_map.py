@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 
-def get_activity_map(increment, xrange=[0,3], yrange=[-1,3], title='OER activity'):
+def get_activity_map(increment=500, xrange=[0,3], yrange=[-1,3], title='OER activity'):
 
     DGOminOH = np.linspace(xrange[0],xrange[1], increment)
     DGOH = np.linspace(-1,3, increment)
@@ -30,7 +30,8 @@ def get_activity_map(increment, xrange=[0,3], yrange=[-1,3], title='OER activity
     plt.pcolormesh(DGOminOH, DGOH, noer, cmap='rainbow', 
                    vmin=-np.abs(noer).max(), 
                    vmax=np.abs(noer).max())
-    plt.colorbar()
+    cbar = plt.colorbar()
+    cbar.set_label(r'$\eta_{OER}$ (V)', fontsize=20)
     plt.clim(0, 2) 
     plt.xlabel(r'$\Delta G_{O^*}-\Delta G_{OH^*}$ (eV)', fontsize=20)
     plt.ylabel(r'$\Delta G_{OH^*}$ (eV)', fontsize=20)
