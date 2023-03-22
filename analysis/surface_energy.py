@@ -135,16 +135,17 @@ def get_slab_object(dat, relaxed=False):
     return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, slab.miller_index, slab.oriented_unit_cell, 
                 slab.shift, slab.scale_factor, coords_are_cartesian=True, site_properties=slab.site_properties)
 
-def get_slab_entry(dat, color=None, relaxed=False):
+def get_slab_entry(dat, color=None, relaxed=False, label_rid=False):
 
     slab = get_slab_object(dat, relaxed=relaxed)
-    return SlabEntry(slab, dat.y, slab.miller_index, 
-                     label=slab.miller_index, color=color)
+    label = (tuple(slab.miller_index), dat.rid) if label_rid else tuple(slab.miller_index)
+    return SlabEntry(slab, dat.y, tuple(slab.miller_index), 
+                     label=label, color=color)
 
 def get_surface_energy(dat, ref_entries=None):
     bulk_entry = ComputedEntry(dat.bulk_formula, dat.bulk_energy)
     ref_entries = get_ref_entries(bulk_entry) if not ref_entries else ref_entries
-    slabentry = get_slab_entry(dat)
+    slabentry = get_slab_entry(dat, label_rid=label_rid)
     surface_energy = slabentry.surface_energy(bulk_entry, ref_entries=ref_entries, referenced=False)
     
     # surface energy is currently a function of mu_X, 
@@ -158,7 +159,7 @@ def get_surface_energy(dat, ref_entries=None):
         return surface_energy
 
 
-def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref_entries=None):
+def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref_entries=None, label_rid=False):
     """
     Function takes a list of OCP Data objects and plots the surface 
         energy against the Miller Index of the slab. The surface energy 
@@ -186,10 +187,11 @@ def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref
         else:
             c = 'g' if se.coeff('delu_O') < 0 else 'b'
             se = se.subs('delu_O', dmu)
-            
-        if dat.miller_index not in hkl_to_se_dict.keys():
-            hkl_to_se_dict[dat.miller_index] = []
-        hkl_to_se_dict[dat.miller_index].append([c, se])
+        
+        hkl = tuple(dat.miller_index)
+        if hkl not in hkl_to_se_dict.keys():
+            hkl_to_se_dict[hkl] = []
+        hkl_to_se_dict[hkl].append([c, se])
         
     # sort x-axis based on normalized hkl
     hkl_norms = [np.linalg.norm(hkl) for hkl in hkl_to_se_dict.keys()]
@@ -223,7 +225,7 @@ def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref
     
     return plt
 
-def preset_slabentry_se(slabentry, bulk_entry, ref_entries=None):
+def preset_slabentry_se(slabentry, bulk_entry, ref_entries=None, MAPIKEY=None):
     ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY) if not ref_entries else ref_entries
     ref_entries_dict = {Symbol('u_%s' %(list(entry.composition.as_dict().keys())[0])): \
                         entry.energy for entry in ref_entries}
@@ -233,7 +235,7 @@ def preset_slabentry_se(slabentry, bulk_entry, ref_entries=None):
     slabentry.preset_surface_energy = se
     
 
-def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None):
+def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None, label_rid=False):
     dat = list_of_dat[0]
     if bulk_structure:
         bulk_entry = ComputedStructureEntry(bulk_structure, dat.bulk_energy)
@@ -243,13 +245,15 @@ def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None):
     # color code Miller indices
     hkl_color_dict = {}
     for dat in list_of_dat:
-        hkl_color_dict[dat.miller_index] = random_color_generator()
+        hkl = tuple(dat.miller_index)
+        hkl_color_dict[hkl] = random_color_generator()
             
     # get the slab entries and preset their surface energies as functions of delta mu_O only
-    slab_entries = [get_slab_entry(dat, color=hkl_color_dict[dat.miller_index]) for dat in list_of_dat]
+    hkl = tuple(dat.miller_index)
+    slab_entries = [get_slab_entry(dat, color=hkl_color_dict[hkl], label_rid=label_rid) for dat in list_of_dat]
     ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY)
     for slabentry in slab_entries:
-        preset_slabentry_se(slabentry)
+        preset_slabentry_se(slabentry, bulk_entry)
 
     # Get the SurfaceEnergyPlotter object for doing surface energy analysis
     for gas_entry in ref_entries:
