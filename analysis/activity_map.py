@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 
-def get_activity_map(increment=500, xrange=[0,3], yrange=[-1,3], T=0, U=0, proton_activity=1,
+def get_activity_map(increment=500, xrange=[0,3], yrange=[-1,3], T=0, U=0, pH=7,
                      title='OER activity', slopeOHtoOOH=0.73, intOHtoOOH=3.44):
 
     DGOminOH = np.linspace(xrange[0],xrange[1], increment)
@@ -15,7 +15,9 @@ def get_activity_map(increment=500, xrange=[0,3], yrange=[-1,3], T=0, U=0, proto
     DGOOHminO = DGOOH-DGO
     
     kb = 1.380649 * 10**(-23)
-    electron_transfer = np.array([-1*U + kb*T * np.log(proton_activity)]*4)
+    proton_activity = 10**(-1*pH)
+    JtoeV = 6.242e18
+    electron_transfer = np.array([-1*U + kb*T * JtoeV * np.log(proton_activity)]*4)
     
     e =4
     noer = []
