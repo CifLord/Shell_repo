@@ -8,7 +8,7 @@ from ase.constraints import FixAtoms
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 
 from database.generate_metadata import write_metadata_json
-from structure_generation.MXide_adsorption import make_superslab_with_partition
+from structure_generation.MXide_adsorption import make_superslab_with_partition, get_repeat_from_min_lw
 
 import numpy as np
 import json
@@ -193,31 +193,6 @@ def find_surface_atoms_by_height(slab, height_tol=2):
     return tags
 
 
-def get_repeat_from_min_lw(slab, min_lw):
-    """
-    Modified version of algorithm from adsorption.py for determining the super cell 
-        matrix of the slab given min_lw. This will location the smallest super slab 
-        cell with min_lw by including square root 3x3 transformation matrices
-    """
-    
-    xlength = np.linalg.norm(slab.lattice.matrix[0])
-    ylength = np.linalg.norm(slab.lattice.matrix[1])
-    xrep = np.ceil(min_lw / xlength)
-    yrep = np.ceil(min_lw / ylength)
-    rtslab = slab.copy()
-    rtslab.make_supercell([[1,1,0], [1,-1,0], [0,0,1]])
-    rt_matrix = rtslab.lattice.matrix
-    xlength_rt = np.linalg.norm(rt_matrix[0])
-    ylength_rt = np.linalg.norm(rt_matrix[1])
-    xrep_rt = np.ceil(min_lw / xlength_rt)
-    yrep_rt = np.ceil(min_lw / ylength_rt)
-
-    xrep = xrep*np.array([1,0,0]) if xrep*xlength < xrep_rt*xlength_rt else xrep_rt*np.array([1,1,0]) 
-    yrep = yrep*np.array([0,1,0]) if yrep*ylength < yrep_rt*ylength_rt else yrep_rt*np.array([1,-1,0]) 
-    zrep = [0,0,1]
-    return [xrep, yrep, zrep]
-
-
 def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1, 
                    height_tol=2, min_lw=8, functional='GemNet-OC', count_undercoordination=False):
     
@@ -261,6 +236,7 @@ def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1,
         tags = [0 if i not in new_tags else 1 for i, site in enumerate(new_slab)]    
         new_slab.add_site_property('tag', tags)
         
+        msuper = get_repeat_from_min_lw(new_slab, 8)
         new_slab = make_superslab_with_partition(new_slab, msuper)
 
         # get metadata 
