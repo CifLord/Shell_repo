@@ -253,7 +253,7 @@ def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None, 
     slab_entries = [get_slab_entry(dat, color=hkl_color_dict[hkl], label_rid=label_rid) for dat in list_of_dat]
     ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY)
     for slabentry in slab_entries:
-        preset_slabentry_se(slabentry, bulk_entry)
+        preset_slabentry_se(slabentry, bulk_entry, ref_entries=ref_entries)
 
     # Get the SurfaceEnergyPlotter object for doing surface energy analysis
     for gas_entry in ref_entries:
