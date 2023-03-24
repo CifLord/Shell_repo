@@ -19,12 +19,13 @@ def get_activity_map(increment=500, xrange=[0,3], yrange=[-1,3], T=0, U=0, pH=7,
     JtoeV = 6.242e18
     electron_transfer = np.array([-1*U + kb*T * JtoeV * np.log(proton_activity)]*4)
     
-    e =4
+    e = 4
     noer = []
     for i, row in enumerate(DGOH):
         new_row = []
         for ii, dgOH in enumerate(row):
-            all_DG = np.array([dgOH, DGOminOH[i][ii], DGOOH[i][ii]-DGO[i][ii], 4.92-DGOOH[i][ii]]) + electron_transfer
+            all_DG = np.array([dgOH, DGOminOH[i][ii], DGOOH[i][ii]-DGO[i][ii], 
+                               4.92-DGOOH[i][ii]]) + electron_transfer
             new_row.append(max(all_DG)-1.23)
         noer.append(new_row)
 

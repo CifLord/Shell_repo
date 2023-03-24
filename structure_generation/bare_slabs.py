@@ -6,6 +6,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from collections import defaultdict
 from ase.constraints import FixAtoms
 from pymatgen.entries.computed_entries import ComputedStructureEntry
+from pymatgen.ext.matproj import MPRester
 
 from database.generate_metadata import write_metadata_json
 from structure_generation.MXide_adsorption import make_superslab_with_partition, get_repeat_from_min_lw
@@ -39,6 +40,8 @@ Metadata and additional API information for adsorbed slabs:
 from database import generate_metadata
 f = generate_metadata.__file__
 bulk_oxides_20220621 = json.load(open(f.replace(f.split('/')[-1], 'bulk_oxides_20220621.json'), 'rb'))
+bulk_oxides_dict = {entry['entry_id']: ComputedStructureEntry.from_dict(entry) \
+                    for entry in bulk_oxides_20220621}
 
 
 def tag_surface_atoms(bulk, slab, height_tol=2, count_undercoordination=False):
@@ -193,7 +196,7 @@ def find_surface_atoms_by_height(slab, height_tol=2):
     return tags
 
 
-def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1, 
+def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1, MAPIKEY=None,
                    height_tol=2, min_lw=8, functional='GemNet-OC', count_undercoordination=False):
     
     """
@@ -201,9 +204,14 @@ def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1,
         (mmi). Returns a list of atoms objects. In each atoms object, also 
         include additional metadata for database management and post-processing.
     """
+        
+    if entry_id not in bulk_oxides_dict.keys():
+        mprester = MPRester(MAPIKEY) if MAPIKEY else MPRester()
+        bulk_entry = mprester.get_entry_by_material_id(entry_id, inc_structure=True,
+                                                       conventional_unit_cell=True)
+    else:
+        bulk_entry = bulk_oxides_dict[entry_id]
     
-    bulk_entry = [ComputedStructureEntry.from_dict(entry) for entry in bulk_oxides_20220621 \
-                  if entry['entry_id'] == entry_id][0]
     bulk = bulk_entry.structure
     all_slabs = generate_all_slabs(bulk, mmi, slab_size, vacuum_size,
                                    center_slab=True, max_normal_search=1, symmetrize=True, tol=tol)
