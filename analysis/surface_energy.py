@@ -135,17 +135,19 @@ def get_slab_object(dat, relaxed=False):
     return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, slab.miller_index, slab.oriented_unit_cell, 
                 slab.shift, slab.scale_factor, coords_are_cartesian=True, site_properties=slab.site_properties)
 
-def get_slab_entry(dat, color=None, relaxed=False, label_rid=False):
-
+def get_slab_entry(dat, color=None, relaxed=False, clean_slab_entry=None, ads_entries=None, data={}):
+    
     slab = get_slab_object(dat, relaxed=relaxed)
-    label = (tuple(slab.miller_index), dat.rid) if label_rid else tuple(slab.miller_index)
-    return SlabEntry(slab, dat.y, tuple(slab.miller_index), 
-                     label=label, color=color)
+    e = dat.y if 'adslab-' not in dat.rid else dat.ads_E
+    return SlabEntry(slab, e, tuple(slab.miller_index), 
+                     label=tuple(slab.miller_index), color=color, 
+                     entry_id=dat.entry_id, clean_entry=clean_slab_entry, 
+                     adsorbates=ads_entries, data=data)
 
 def get_surface_energy(dat, ref_entries=None):
     bulk_entry = ComputedEntry(dat.bulk_formula, dat.bulk_energy)
     ref_entries = get_ref_entries(bulk_entry) if not ref_entries else ref_entries
-    slabentry = get_slab_entry(dat, label_rid=label_rid)
+    slabentry = get_slab_entry(dat)
     surface_energy = slabentry.surface_energy(bulk_entry, ref_entries=ref_entries, referenced=False)
     
     # surface energy is currently a function of mu_X, 
@@ -159,7 +161,7 @@ def get_surface_energy(dat, ref_entries=None):
         return surface_energy
 
 
-def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref_entries=None, label_rid=False):
+def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref_entries=None):
     """
     Function takes a list of OCP Data objects and plots the surface 
         energy against the Miller Index of the slab. The surface energy 
@@ -235,7 +237,7 @@ def preset_slabentry_se(slabentry, bulk_entry, ref_entries=None, MAPIKEY=None):
     slabentry.preset_surface_energy = se
     
 
-def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None, label_rid=False):
+def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None):
     dat = list_of_dat[0]
     if bulk_structure:
         bulk_entry = ComputedStructureEntry(bulk_structure, dat.bulk_energy)
@@ -250,7 +252,8 @@ def make_surface_energy_plotter(list_of_dat, bulk_structure=None, MAPIKEY=None, 
             
     # get the slab entries and preset their surface energies as functions of delta mu_O only
     hkl = tuple(dat.miller_index)
-    slab_entries = [get_slab_entry(dat, color=hkl_color_dict[hkl], label_rid=label_rid) for dat in list_of_dat]
+    slab_entries = [get_slab_entry(dat, color=hkl_color_dict[hkl],
+                                   data={'rid': dat.rid}) for dat in list_of_dat]
     ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY)
     for slabentry in slab_entries:
         preset_slabentry_se(slabentry, bulk_entry, ref_entries=ref_entries)

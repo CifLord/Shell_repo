@@ -146,6 +146,9 @@ class SlabEntry(ComputedStructureEntry):
             data=data,
             entry_id=entry_id,
         )
+        
+        # Returns the TOTAL number of adsorbates in the slab on BOTH sides
+        self.Nads_in_slab = sum(self.composition.as_dict()[a] for a in self.ads_entries_dict)
 
     def as_dict(self):
         """
@@ -162,7 +165,7 @@ class SlabEntry(ComputedStructureEntry):
 
         return d
 
-    def gibbs_binding_energy(self, eads=False):
+    def gibbs_binding_energy(self, eads=False, Nads=None):
         """
         Returns the adsorption energy or Gibb's binding energy
             of an adsorbate on a surface
@@ -173,9 +176,10 @@ class SlabEntry(ComputedStructureEntry):
         """
 
         n = self.get_unit_primitive_area
-        Nads = self.Nads_in_slab
+        Nads = self.Nads_in_slab if not Nads else Nads
 
-        BE = (self.energy - n * self.clean_entry.energy) / Nads - sum(ads.energy_per_atom for ads in self.adsorbates)
+        BE = (self.energy - n * self.clean_entry.energy) / Nads \
+        - sum(ads.energy_per_atom for ads in self.adsorbates)
         return BE * Nads if eads else BE
 
     def surface_energy(self, ucell_entry, ref_entries=None, referenced=True):
@@ -268,7 +272,7 @@ class SlabEntry(ComputedStructureEntry):
         A_ads = self.surface_area
         A_clean = self.clean_entry.surface_area
         n = A_ads / A_clean
-        return n
+        return int(round(n))
 
     @property
     def get_monolayer(self):
@@ -280,13 +284,6 @@ class SlabEntry(ComputedStructureEntry):
         Nsurfs = self.Nsurfs_ads_in_slab
         Nads = self.Nads_in_slab
         return Nads / (unit_a * Nsurfs)
-
-    @property
-    def Nads_in_slab(self):
-        """
-        Returns the TOTAL number of adsorbates in the slab on BOTH sides
-        """
-        return sum(self.composition.as_dict()[a] for a in self.ads_entries_dict)
 
     @property
     def Nsurfs_ads_in_slab(self):
