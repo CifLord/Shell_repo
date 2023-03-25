@@ -96,24 +96,24 @@ class SurfaceQueryEngine(QueryEngine):
         for dat in dat_list:
             if 'adslab-' not in dat.rid:
                 slab_entries[dat.rid] = get_slab_entry(dat, relaxed=relaxed, 
-                                                       data={'rid': dat.rid})
+                                                       data={'mpid': dat.entry_id})
         
         # now get the adslab entries
         for dat in dat_list:
             if 'adslab-' in dat.rid:
                 
                 if dat.slab_rid not in slab_entries.keys():
-                    doc = self.surface_properties.find_one({'rid': dat.slab_rid, 'adsorbate': dat.adsorbate})
+                    doc = self.surface_properties.find_one({'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
                     if not doc:
                         continue
                     clean_dat = Data.from_dict(doc)
                     slab_entries[dat.slab_rid] = get_slab_entry(clean_dat, relaxed=relaxed,
-                                                                data={'rid': dat.rid})
+                                                                data={'mpid': dat.entry_id})
                     
                 entry = get_slab_entry(dat, relaxed=relaxed, 
                                        clean_slab_entry=slab_entries[dat.slab_rid],
                                        ads_entries=[self.mol_entry[dat.adsorbate]],
-                                       data={'rid': dat.rid, 'adsorbate': dat.adsorbate})
+                                       data={'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
                 entry.Nads_in_slab = dat.nads*sum(self.mol_entry[dat.adsorbate].composition.as_dict().values())
                 slab_entries[dat.rid] = entry
                 
@@ -122,7 +122,7 @@ class SurfaceQueryEngine(QueryEngine):
         
     def get_surfe_plotter(self, criteria=None, relaxed=True):
         
-        if not criteria:
+        if criteria == None:
             slab_entries_dict = self.slab_entries_dict
         else:
             slab_entries_dict = self.get_slab_entries(criteria, relaxed=relaxed)
@@ -130,9 +130,9 @@ class SurfaceQueryEngine(QueryEngine):
         entry_id_to_surfplt_dict = {}
         for rid in slab_entries_dict.keys():
             slabentry = slab_entries_dict[rid]
-            if slabentry.entry_id not in entry_id_to_surfplt_dict.keys():
-                entry_id_to_surfplt_dict[slabentry.entry_id] = []
-            entry_id_to_surfplt_dict[slabentry.entry_id].append(slabentry)
+            if slabentry.data['mpid'] not in entry_id_to_surfplt_dict.keys():
+                entry_id_to_surfplt_dict[slabentry.data['mpid']] = []
+            entry_id_to_surfplt_dict[slabentry.data['mpid']].append(slabentry)
             
         surfplt_dict = {}
         for entry_id in entry_id_to_surfplt_dict.keys():
@@ -169,7 +169,7 @@ class SurfaceQueryEngine(QueryEngine):
             
         dmuO = get_dmu(T, P)
 
-        if not criteria:
+        if criteria == None:
             surfplt_dict = self.surf_plt
         else:
             surfplt_dict = self.get_surfe_plotter(criteria, relaxed=False)
@@ -180,14 +180,14 @@ class SurfaceQueryEngine(QueryEngine):
             Gads_dict[mpid] = {}
             for hkl in surfplt.all_slab_entries.keys():
                 
-                entry = surfplt.get_stable_entry_at_u(hkl, delu_dict={Symbol('delu_O'): dmuO})[0]
-                slab_rid = entry.data['rid']
+                entry = surfplt.get_stable_entry_at_u(hkl, delu_dict={Symbol('delu_O'): dmuO}, no_doped=True)[0]
+                slab_rid = entry.entry_id
                 
                 Eads = []
-                for entry in self.slab_entries.values():
-                    if 'adslab-' in entry.data['rid']:
-                        if entry.data['adsorbate'] == adsorbate:
-                            Eads.append(entry.gibbs_binding_energy(eads=True))
+                for adsentry in self.slab_entries.values():
+                    if 'adslab-' in adsentry.entry_id and adsentry.clean_entry.entry_id == slab_rid:
+                        if adsentry.data['adsorbate'] == adsorbate:
+                            Eads.append(adsentry.gibbs_binding_energy(eads=True))
                             
                 Gads_dict[mpid][hkl] = sorted(Eads)[0] + self.Gcorr[adsorbate]
                 
@@ -209,27 +209,27 @@ class SurfaceQueryEngine(QueryEngine):
                 G4 = G4_dict[mpid][hkl]
                 
                 plots = []
-                plots.append(plt.plot([0, 1], [G1, G1], 'k-'))
-                plots.append(plt.plot([1, 1], [G1, G2], 'k-'))
-                plots.append(plt.plot([1, 2], [G2, G2], 'k-'))
-                plots.append(plt.plot([2, 2], [G2, G3], 'k-'))
-                plots.append(plt.plot([2, 3], [G3, G3], 'k-'))
-                plots.append(plt.plot([3, 3], [G3, G4], 'k-'))
-                plots.append(plt.plot([3, 4], [G4, G4], 'k-'))
-                plots.append(plt.plot([4, 4], [G4, G5], 'k-'))
-                plots.append(plt.plot([4, 5], [G5, G5], 'k-'))
+                plots.append(plt.plot([0, 1], [G1, G1], 'r-'))
+                plots.append(plt.plot([1, 1], [G1, G2], 'r-'))
+                plots.append(plt.plot([1, 2], [G2, G2], 'r-'))
+                plots.append(plt.plot([2, 2], [G2, G3], 'r-'))
+                plots.append(plt.plot([2, 3], [G3, G3], 'r-'))
+                plots.append(plt.plot([3, 3], [G3, G4], 'r-'))
+                plots.append(plt.plot([3, 4], [G4, G4], 'r-'))
+                plots.append(plt.plot([4, 4], [G4, G5], 'r-'))
+                plots.append(plt.plot([4, 5], [G5, G5], 'r-'))
                 
                 if plot_ideal:
-                    plots.append(plt.plot([0, 1], [G1, G1], 'r-'))
-                    plots.append(plt.plot([1, 1], [G1, G5/4], 'r-'))
-                    plots.append(plt.plot([1, 2], [G5/4, G5/4], 'r-'))
-                    plots.append(plt.plot([2, 2], [G5/4, G5/2], 'r-'))
-                    plots.append(plt.plot([2, 3], [G5/2, G5/2], 'r-'))
-                    plots.append(plt.plot([3, 3], [G5/2, G5*(3/4)], 'r-'))
-                    plots.append(plt.plot([3, 4], [G5*(3/4), G5*(3/4)], 'r-'))
-                    plots.append(plt.plot([4, 4], [G5*(3/4), G5], 'r-'))
-                    plots.append(plt.plot([4, 5], [G5, G5], 'r-'))
-
+                    plots.append(plt.plot([0, 1], [G1, G1], 'k-', label='Ideal'))
+                    plots.append(plt.plot([1, 1], [G1, G5/4], 'k-', label='Ideal'))
+                    plots.append(plt.plot([1, 2], [G5/4, G5/4], 'k-', label='Ideal'))
+                    plots.append(plt.plot([2, 2], [G5/4, G5/2], 'k-', label='Ideal'))
+                    plots.append(plt.plot([2, 3], [G5/2, G5/2], 'k-', label='Ideal'))
+                    plots.append(plt.plot([3, 3], [G5/2, G5*(3/4)], 'k-', label='Ideal'))
+                    plots.append(plt.plot([3, 4], [G5*(3/4), G5*(3/4)], 'k-', label='Ideal'))
+                    plots.append(plt.plot([4, 4], [G5*(3/4), G5], 'k-', label='Ideal'))
+                    plots.append(plt.plot([4, 5], [G5, G5], 'k-', label='Ideal'))
+                plt.close()
                 rxn_diagram_dict[mpid][hkl] = plots
                         
         return rxn_diagram_dict
