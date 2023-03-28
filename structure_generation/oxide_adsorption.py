@@ -47,6 +47,8 @@ Metadata and additional API information for adsorbed slabs:
 from database import generate_metadata
 f = generate_metadata.__file__
 bulk_oxides_20220621 = json.load(open(f.replace(f.split('/')[-1], 'bulk_oxides_20220621.json'), 'rb'))
+bulk_oxides_dict = {entry['entry_id']: ComputedStructureEntry.from_dict(entry) \
+                    for entry in bulk_oxides_20220621}
 
 # For slab saturation, 
 Ox = Molecule(["O"], [[0,0,0]])
@@ -61,7 +63,7 @@ OOH_up = Molecule(["O","N","H"], [[0, 0, 0], [-1.067, -0.403, 0.796],[-0.696, -0
 OOH_down = Molecule(["O","N","H"], [[0,0,0], [-1.067, -0.403, 0.796], [-1.84688848, -0.68892498, 0.25477651]])
 ads_dict = {'O': [Ox], 'OH': [OH], 'OOH': [OOH_down, OOH_up]}
 
-def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
+def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1], MAPIKEY=None):
     """
     Gets all adsorbed slab for a slab. Will always return 6 adslabs, 
         1 O* saturated slab and 5 OH saturated slabs. 4 of the OH  
@@ -71,8 +73,12 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1]):
     """
     
     # get bulk entry
-    bulk_entry = [ComputedStructureEntry.from_dict(entry) for entry in bulk_oxides_20220621 \
-                  if entry['entry_id'] == slab_data.entry_id][0]
+    if entry_id not in bulk_oxides_dict.keys():
+        mprester = MPRester(MAPIKEY) if MAPIKEY else MPRester()
+        bulk_entry = mprester.get_entry_by_material_id(entry_id, inc_structure=True,
+                                                       conventional_unit_cell=True)
+    else:
+        bulk_entry = bulk_oxides_dict[entry_id]
     
     # get pmg slab
     init_slab = Slab.from_dict(json.loads(slab_data.init_pmg_slab))
