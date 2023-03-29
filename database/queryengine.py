@@ -86,10 +86,13 @@ class SurfaceQueryEngine(QueryEngine):
                 new_dat[k] = d[k]
         self.surface_properties.insert_one(new_dat)
         
+    def find_data_objects(self, criteria):
+        return [Data.from_dict(doc) for doc in self.surface_properties.find(criteria)]
+        
     def get_slab_entries(self, criteria, relaxed=True):
         
         clean_dict, adslab_dict = {}, {}
-        dat_list = [Data.from_dict(doc) for doc in self.surface_properties.find(criteria)]
+        dat_list = self.find_data_objects(criteria)
         
         slab_entries = {}
         # get the clean slabs first to build the adslabs
