@@ -5,7 +5,7 @@ from pymatgen.util.coord import all_distances, pbc_shortest_vectors
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 from pymatgen.core.periodic_table import Element
 from pymatgen.analysis.structure_matcher import StructureMatcher
-
+from mp_api.client import MPRester# new key
 from database.generate_metadata import write_metadata_json
 from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
 
@@ -62,8 +62,18 @@ OH = Molecule(["O","H"], [[0,0,0],
 OOH_up = Molecule(["O","N","H"], [[0, 0, 0], [-1.067, -0.403, 0.796],[-0.696, -0.272, 1.706]])
 OOH_down = Molecule(["O","N","H"], [[0,0,0], [-1.067, -0.403, 0.796], [-1.84688848, -0.68892498, 0.25477651]])
 ads_dict = {'O': [Ox], 'OH': [OH], 'OOH': [OOH_down, OOH_up]}
+MAPIKEY='HO6BA47aEuOPR8Puc0qshrc6G9596FNa' #Liqiang Key
 
-def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1], MAPIKEY=None):
+def strip_entry(input_string):
+    # when get the entry_id in lmdb, we may get the str like mp-0000-GGA
+    # this method strip the str to mp-0000
+    second_hyphen_index = input_string.find('-', input_string.find('-') + 1)
+    if second_hyphen_index != -1:
+        return (input_string[:second_hyphen_index])
+    else:
+        return (input_string)
+
+def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1], MAPIKEY=MAPIKEY):
     """
     Gets all adsorbed slab for a slab. Will always return 6 adslabs, 
         1 O* saturated slab and 5 OH saturated slabs. 4 of the OH  
@@ -73,10 +83,13 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1], MAP
     """
     
     # get bulk entry
+    entry_id=slab_data.entry_id
+    entry_id=strip_entry(entry_id)
     if entry_id not in bulk_oxides_dict.keys():
         mprester = MPRester(MAPIKEY) if MAPIKEY else MPRester()
         bulk_entry = mprester.get_entry_by_material_id(entry_id, inc_structure=True,
                                                        conventional_unit_cell=True)
+        bulk_entry=bulk_entry[0] # new key need to index
     else:
         bulk_entry = bulk_oxides_dict[entry_id]
     
