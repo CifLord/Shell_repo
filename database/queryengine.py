@@ -151,7 +151,7 @@ class SurfaceQueryEngine(QueryEngine):
                 slabentry.color = hkl_color_dict[hkl]
 
             bulk_entry = self.mprester.get_entry_by_material_id(entry_id, inc_structure=True, 
-                                                                conventional_unit_cell=True)
+                                                                conventional_unit_cell=True)[0]
             # get the slab entries and preset their surface energies as functions of delta mu_O only
             ref_entries = get_ref_entries(bulk_entry, MAPIKEY=self.MAPIKEY)
             for slabentry in slabentries:

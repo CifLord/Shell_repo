@@ -6,7 +6,7 @@ from matplotlib import pylab as plt
 from analysis.surface_analysis import SurfaceEnergyPlotter
 from pymatgen.core.surface import Slab, Lattice
 from pymatgen.core.composition import Composition
-from pymatgen.ext.matproj import MPRester
+from mp_api.client import MPRester
 
 from analysis.surface_analysis import SlabEntry
 from pymatgen.analysis.wulff import hkl_tuple_to_str
@@ -144,9 +144,9 @@ def get_slab_entry(dat, color=None, relaxed=False, clean_slab_entry=None, ads_en
                      entry_id=dat.rid, clean_entry=clean_slab_entry, 
                      adsorbates=ads_entries, data=data)
 
-def get_surface_energy(dat, ref_entries=None):
+def get_surface_energy(dat, ref_entries=None, MAPIKEY=None):
     bulk_entry = ComputedEntry(dat.bulk_formula, dat.bulk_energy)
-    ref_entries = get_ref_entries(bulk_entry) if not ref_entries else ref_entries
+    ref_entries = get_ref_entries(bulk_entry, MAPIKEY=MAPIKEY) if not ref_entries else ref_entries
     slabentry = get_slab_entry(dat)
     surface_energy = slabentry.surface_energy(bulk_entry, ref_entries=ref_entries, referenced=False)
     
@@ -161,7 +161,7 @@ def get_surface_energy(dat, ref_entries=None):
         return surface_energy
 
 
-def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref_entries=None):
+def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref_entries=None, MAPIKEY=None):
     """
     Function takes a list of OCP Data objects and plots the surface 
         energy against the Miller Index of the slab. The surface energy 
@@ -183,7 +183,7 @@ def plot_surface_energies(list_of_dat, dmu=0, hkil=False, stable_only=False, ref
     # Determine stoichiometry colors and surface energy
     hkl_to_se_dict = {}
     for dat in list_of_dat:
-        se = get_surface_energy(dat, ref_entries=ref_entries)
+        se = get_surface_energy(dat, ref_entries=ref_entries, MAPIKEY=MAPIKEY)
         if type(se).__name__ == 'float':
             c = 'r'
         else:
