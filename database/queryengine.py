@@ -7,7 +7,7 @@ from pymatgen.core.structure import Structure, Molecule, Composition
 from pymatgen.core.surface import Slab
 from pymatgen.analysis.surface_analysis import *
 from pymatgen.entries.computed_entries import ComputedEntry
-from pymatgen.ext.matproj import MPRester
+from mp_api.client import MPRester
 
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
@@ -61,6 +61,8 @@ class SurfaceQueryEngine(QueryEngine):
         self.mprester = MPRester(MAPIKEY)
         self.surf_plt = None
         self.slab_entries = None
+        self.rxn_diagram_xlabels = ['$2H_2O_{(l)}+*$', '$OH*$', '$O*$', '$OOH*$', '$O_{2(g)}+*$']
+        self.rxn_diagram_xticks = [0.5, 1.5, 2.5, 3.5, 4.5]
         
         # Total DFT energy of adsorbates in a box
         self.ads_in_a_box = {'C': -.12621228E+01, 'CO': -.14791073E+02, 'H': -.11171013E+01, 
@@ -195,13 +197,48 @@ class SurfaceQueryEngine(QueryEngine):
                 Gads_dict[mpid][hkl] = sorted(Eads)[0] + self.Gcorr[adsorbate]
                 
         return Gads_dict
+    
+    def get_rxn_energies(self, criteria=None, T=0, U=0, pH=0, P=0.1):
+        """
+        Returns a dictionary containing the individual energies at each step 
+            of the reaction diagram (G1, G2, g3, G4, G5), the reaction energies
+            (DG1, DG2, DG3, DG4), and the overpotentials. Each dict is organized 
+            in a nested dictionary of mpid to hkl.
+        """
         
-    def build_rxn_diagram(self, criteria=None, T=0, U=0, pH=0, P=0.1, plot_ideal=True):
         G1 = 0
         G2_dict = self.get_gibbs_adsorption_energies('OH', criteria=criteria, T=T, U=U, pH=pH, P=P)
         G3_dict = self.get_gibbs_adsorption_energies('O', criteria=criteria, T=T, U=U, pH=pH, P=P)
         G4_dict = self.get_gibbs_adsorption_energies('OOH', criteria=criteria, T=T, U=U, pH=pH, P=P)
         G5 = -1*(self.ads_in_a_box['O2']/2)
+        rxn_energy_dict = {'G1': G1, 'G2_dict': G2_dict, 'G3_dict': G3_dict, 'G4_dict': G4_dict, 'G5': G5} 
+        
+        rxn_energy_dict.update({'DG1': {}, 'DG2': {}, 'DG3': {}, 'DG4': {}, 'overpotential': {}}) 
+        for mpid in rxn_energy_dict['G2_dict'].keys():
+            rxn_energy_dict['DG1'][mpid] = {}
+            rxn_energy_dict['DG2'][mpid] = {}
+            rxn_energy_dict['DG3'][mpid] = {}
+            rxn_energy_dict['DG4'][mpid] = {}
+            rxn_energy_dict['overpotential'][mpid] = {}
+            for hkl in rxn_energy_dict['G2_dict'][mpid].keys():
+                DG1 = G2_dict[mpid][hkl] - G1
+                DG2 = G3_dict[mpid][hkl] - G2_dict[mpid][hkl]
+                DG3 = G4_dict[mpid][hkl] - G3_dict[mpid][hkl]
+                DG4 = G5 - G4_dict[mpid][hkl]
+                rxn_energy_dict['DG1'][mpid][hkl] = DG1
+                rxn_energy_dict['DG2'][mpid][hkl] = DG2
+                rxn_energy_dict['DG3'][mpid][hkl] = DG3
+                rxn_energy_dict['DG4'][mpid][hkl] = DG4
+                rxn_energy_dict['overpotential'][mpid][hkl] = max(DG1, DG2, DG3, DG4)
+        
+        return rxn_energy_dict
+        
+    def build_rxn_diagram(self, criteria=None, T=0, U=0, pH=0, P=0.1):
+        
+        from matplotlib import pylab as rxn_plt
+        
+        rxn_energy_dict = self.get_rxn_energies(criteria=criteria, T=T, U=U, pH=pH, P=P)
+        G1, G2_dict, G3_dict, G4_dict, G5, DG1, DG2, DG3, DG4, overpotential = rxn_energy_dict.values()
         
         rxn_diagram_dict = {}
         for mpid in G2_dict.keys():
@@ -212,27 +249,34 @@ class SurfaceQueryEngine(QueryEngine):
                 G4 = G4_dict[mpid][hkl]
                 
                 plots = []
-                plots.append(plt.plot([0, 1], [G1, G1], 'r-'))
-                plots.append(plt.plot([1, 1], [G1, G2], 'r-'))
-                plots.append(plt.plot([1, 2], [G2, G2], 'r-'))
-                plots.append(plt.plot([2, 2], [G2, G3], 'r-'))
-                plots.append(plt.plot([2, 3], [G3, G3], 'r-'))
-                plots.append(plt.plot([3, 3], [G3, G4], 'r-'))
-                plots.append(plt.plot([3, 4], [G4, G4], 'r-'))
-                plots.append(plt.plot([4, 4], [G4, G5], 'r-'))
-                plots.append(plt.plot([4, 5], [G5, G5], 'r-'))
-                
-                if plot_ideal:
-                    plots.append(plt.plot([0, 1], [G1, G1], 'k-', label='Ideal'))
-                    plots.append(plt.plot([1, 1], [G1, G5/4], 'k-', label='Ideal'))
-                    plots.append(plt.plot([1, 2], [G5/4, G5/4], 'k-', label='Ideal'))
-                    plots.append(plt.plot([2, 2], [G5/4, G5/2], 'k-', label='Ideal'))
-                    plots.append(plt.plot([2, 3], [G5/2, G5/2], 'k-', label='Ideal'))
-                    plots.append(plt.plot([3, 3], [G5/2, G5*(3/4)], 'k-', label='Ideal'))
-                    plots.append(plt.plot([3, 4], [G5*(3/4), G5*(3/4)], 'k-', label='Ideal'))
-                    plots.append(plt.plot([4, 4], [G5*(3/4), G5], 'k-', label='Ideal'))
-                    plots.append(plt.plot([4, 5], [G5, G5], 'k-', label='Ideal'))
-                plt.close()
+                plots.append(rxn_plt.plot([0, 1], [G1, G1], 'r-'))
+                plots.append(rxn_plt.plot([1, 1], [G1, G2], 'r-'))
+                plots.append(rxn_plt.plot([1, 2], [G2, G2], 'r-'))
+                plots.append(rxn_plt.plot([2, 2], [G2, G3], 'r-'))
+                plots.append(rxn_plt.plot([2, 3], [G3, G3], 'r-'))
+                plots.append(rxn_plt.plot([3, 3], [G3, G4], 'r-'))
+                plots.append(rxn_plt.plot([3, 4], [G4, G4], 'r-'))
+                plots.append(rxn_plt.plot([4, 4], [G4, G5], 'r-'))
+                plots.append(rxn_plt.plot([4, 5], [G5, G5], 'r-'))                
                 rxn_diagram_dict[mpid][hkl] = plots
-                        
+                                
         return rxn_diagram_dict
+    
+    @property
+    def ideal_rxn_diagram(self):
+        
+        from matplotlib import pylab as ideal_plt
+        
+        plots = []
+        G1 = 0
+        G5 = -1*(self.ads_in_a_box['O2']/2)
+        plots.append(ideal_plt.plot([0, 1], [G1, G1], 'k-', label='Ideal'))
+        plots.append(ideal_plt.plot([1, 1], [G1, G5/4], 'k-', label='Ideal'))
+        plots.append(ideal_plt.plot([1, 2], [G5/4, G5/4], 'k-', label='Ideal'))
+        plots.append(ideal_plt.plot([2, 2], [G5/4, G5/2], 'k-', label='Ideal'))
+        plots.append(ideal_plt.plot([2, 3], [G5/2, G5/2], 'k-', label='Ideal'))
+        plots.append(ideal_plt.plot([3, 3], [G5/2, G5*(3/4)], 'k-', label='Ideal'))
+        plots.append(ideal_plt.plot([3, 4], [G5*(3/4), G5*(3/4)], 'k-', label='Ideal'))
+        plots.append(ideal_plt.plot([4, 4], [G5*(3/4), G5], 'k-', label='Ideal'))
+        plots.append(ideal_plt.plot([4, 5], [G5, G5], 'k-', label='Ideal'))
+        return plots

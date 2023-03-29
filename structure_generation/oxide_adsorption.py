@@ -5,7 +5,7 @@ from pymatgen.util.coord import all_distances, pbc_shortest_vectors
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 from pymatgen.core.periodic_table import Element
 from pymatgen.analysis.structure_matcher import StructureMatcher
-from mp_api.client import MPRester# new key
+from mp_api.client import MPRester
 from database.generate_metadata import write_metadata_json
 from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
 
