@@ -47,8 +47,8 @@ if __name__ == "__main__":
 
     # default settings for oxide
     vasp_params = dict(xc='PBE', gga='PE', lreal=False, encut=500, ediff=1e-4, 
-                       ediffg=-0.05, ispin=2, symprec=1e-10, isif=0, nsw=300,
-                       lwave=False, ismear=0, sigma=0.2, isym=0, lcharg=False, 
+                       ediffg=-0.05, ispin=2, symprec=1e-10, isif=0, lcharg=False, 
+                       lwave=False, ismear=0, sigma=0.2, isym=0, nsw=300, lorbit=11, 
                        lvtot=False, ibrion=2, potim=0.5, nelm=300, ialgo=48, npar=4)
     
     # add Hubbard U corrections
