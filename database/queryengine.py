@@ -1,21 +1,16 @@
 from torch_geometric.data.data import Data
 from pymatgen.db import QueryEngine
-import json, random, string, os, glob, shutil
 import numpy as np
 
-from pymatgen.core.structure import Structure, Molecule, Composition
-from pymatgen.core.surface import Slab
-from pymatgen.analysis.surface_analysis import *
 from pymatgen.entries.computed_entries import ComputedEntry
 from mp_api.client import MPRester
 
 from pymongo import MongoClient
-from pymongo.server_api import ServerApi
 from matplotlib import pylab as plt
 
 from database.generate_metadata import NpEncoder
-from analysis.surface_energy import get_slab_entry
-
+from analysis.surface_energy import *
+from analysis.surface_analysis import *
 
 kB = 1.380649 * 10**(-23)
 JtoeV = 6.242e+18
@@ -49,11 +44,12 @@ class SurfaceQueryEngine(QueryEngine):
             'ads_rid': 'ads-BGg3rg4gerG6', 'rid': 'adslab-reg3g53g3h4h2hj204', 
             'miller_index': (1,1,1), 'Slab': pmg_slab_as_dict, 'calc_type': 'bare_slab'}
     """
-    def __init__(self, MAPIKEY=None):
+    def __init__(self, MAPIKEY=None, host="mongodb://127.0.0.1", port=27017, 
+                 database='richardtran415', collection='Shell'):
 
-        conn = MongoClient(host="mongodb://127.0.0.1", port=27017)
-        db = conn.get_database('richardtran415')
-        surface_properties = db['Shell']
+        conn = MongoClient(host=host, port=port)
+        db = conn.get_database(database)
+        surface_properties = db[collection]
 
         self.surface_properties = surface_properties
         self.encoder = NpEncoder()
@@ -109,14 +105,17 @@ class SurfaceQueryEngine(QueryEngine):
                 
                 if dat.slab_rid not in slab_entries.keys():
                     doc = self.surface_properties.find_one({'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
-                    if not doc:
-                        continue
-                    clean_dat = Data.from_dict(doc)
-                    slab_entries[dat.slab_rid] = get_slab_entry(clean_dat, relaxed=relaxed,
-                                                                data={'mpid': dat.entry_id})
+                    if doc:
+                        clean_dat = Data.from_dict(doc)
+                        slab_entries[dat.slab_rid] = get_slab_entry(clean_dat, relaxed=relaxed,
+                                                                    data={'mpid': dat.entry_id})
+                    else:
+                        clean_dat = None
+                else:
+                    clean_dat = slab_entries[dat.slab_rid]
                     
                 entry = get_slab_entry(dat, relaxed=relaxed, 
-                                       clean_slab_entry=slab_entries[dat.slab_rid],
+                                       clean_slab_entry=clean_dat,
                                        ads_entries=[self.mol_entry[dat.adsorbate]],
                                        data={'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
                 entry.Nads_in_slab = dat.nads*sum(self.mol_entry[dat.adsorbate].composition.as_dict().values())
@@ -229,7 +228,7 @@ class SurfaceQueryEngine(QueryEngine):
                 rxn_energy_dict['DG2'][mpid][hkl] = DG2
                 rxn_energy_dict['DG3'][mpid][hkl] = DG3
                 rxn_energy_dict['DG4'][mpid][hkl] = DG4
-                rxn_energy_dict['overpotential'][mpid][hkl] = max(DG1, DG2, DG3, DG4)
+                rxn_energy_dict['overpotential'][mpid][hkl] = max(DG1, DG2, DG3, DG4) - G5/4
         
         return rxn_energy_dict
         
