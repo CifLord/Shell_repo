@@ -261,7 +261,6 @@ class SurfaceQueryEngine(QueryEngine):
                                 
         return rxn_diagram_dict
     
-    @property
     def ideal_rxn_diagram(self):
         
         from matplotlib import pylab as ideal_plt
@@ -278,4 +277,5 @@ class SurfaceQueryEngine(QueryEngine):
         plots.append(ideal_plt.plot([3, 4], [G5*(3/4), G5*(3/4)], 'k-', label='Ideal'))
         plots.append(ideal_plt.plot([4, 4], [G5*(3/4), G5], 'k-', label='Ideal'))
         plots.append(ideal_plt.plot([4, 5], [G5, G5], 'k-', label='Ideal'))
+        
         return plots
