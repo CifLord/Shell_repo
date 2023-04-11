@@ -131,9 +131,18 @@ def random_color_generator():
 def get_slab_object(dat, relaxed=False):
     
     slab = Slab.from_dict(json.loads(dat.init_pmg_slab))
-    coords = dat.pos_relaxed if relaxed else dat.pos 
+    
+    if hasattr(dat, 'ads_pos_relaxed'):
+        coords = dat.ads_pos_relaxed if relaxed else dat.pos 
+    else:
+        coords = dat.pos_relaxed if relaxed else dat.pos 
+        
+    site_properties = slab.site_properties
+    site_properties['selective_dynamics'] = [[True]*3 if t in [1, 2] else [False]*3 
+                                             for t in slab.site_properties['tag']]
+        
     return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, slab.miller_index, slab.oriented_unit_cell, 
-                slab.shift, slab.scale_factor, coords_are_cartesian=True, site_properties=slab.site_properties)
+                slab.shift, slab.scale_factor, coords_are_cartesian=True, site_properties=site_properties)
 
 def get_slab_entry(dat, color=None, relaxed=False, clean_slab_entry=None, ads_entries=None, data={}):
     
