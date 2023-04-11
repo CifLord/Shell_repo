@@ -42,9 +42,13 @@ def convert_atoms_data(atoms: ase.Atoms):
 
 
 def generate_lmdb(atoms_list: object, pathname: str):
+    """
+    atoms_list:: Can be either a list of atoms objects or list of Data objects
+    """
     
-    data_list = [convert_atoms_data(atoms) for atoms in atoms_list]
-
+    data_list = [convert_atoms_data(atoms) for atoms in atoms_list] \
+    if type(atoms_list[0]).__name__ = 'Atoms' else atoms_list
+    
     pathname = pathname + '.lmdb' if '.lmdb' not in pathname else pathname
     db = lmdb.open(
         pathname,
