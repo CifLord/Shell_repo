@@ -9,6 +9,68 @@ from ocpmodels.common.relaxation.ase_utils import OCPCalculator
 
 from structure_generation.lmdb_generator import generate_lmdb
 
+from ase.constraints import Hookean
+from ase.geometry.analysis import Analysis
+import random
+
+
+def add_hookean_constraint(image, des_rt = 2., rec_rt = 1., spring_constant=5, tol=0.3):
+    """Applies a Hookean restorative force to prevent adsorbate desorption, dissociation and
+    surface reconstruction.
+    All bonded pairs in the image will be found with ase Analysis class. The threshold length
+    below which no restorative force will be applied is set as the bond length times the tolerance.
+    If bond length of the atom pair can not be found with _load_bond_length_data function
+    from pymatgen, current distance between two atoms, or a default bond length will be used.
+    This method requires the atoms object to be tagged. Adapted from the FineTuna repository:
+        https://github.com/ulissigroup/finetuna
+    cite the following::
+        Musielewicz, J., Wang, X., Tian, T., & Ulissi, Z. (2022). FINETUNA: fine-tuning 
+            accelerated molecular simulations. Machine Learning: Science and Technology, 
+            3(3), 03LT01. https://doi.org/10.1088/2632-2153/ac8fe0
+    
+    Args:
+        image (atoms): tagged ASE atoms object, 0 for bulk, 1 for surface, 2 for adsorbate.
+               
+        des_rt (float, optional): desorption threshold. Apply a spring to a randomly selected
+        adsorbate atom so that the adsorbate doesn't fly away from the surface. Defaults to 2,
+        i.e.: if the selected atom move 2A above its current z position, apply the restorative
+        force.
+        
+        rec_rt (float, optional): reconstruction threshold. Apply springs to the surface atoms
+        to prevent surface reconstruction. Defaults to 1A, i.e.: if a surface atom move 1A away 
+        from its current position, apply the restorative force.
+        
+        spring_constant (int, optional): Hooke’s law (spring) constant. Defaults to 5.
+        tol (float, optional): relative tolerance to the bond length. Defaults to 0.3, i.e.: if
+        the bond is 30% over the bond length, apply the restorative force.
+    """
+    
+    ana = Analysis(image)
+    cons = image.constraints
+    tags = image.get_tags()
+    surface_indices = [i for i, tag in enumerate(tags) if tag == 1]
+    ads_indices = [i for i, tag in enumerate(tags) if tag == 2]
+    for i in ads_indices:
+        if ana.unique_bonds[0][i]:
+            for j in ana.unique_bonds[0][i]:
+                syms = tuple(sorted([image[i].symbol, image[j].symbol]))
+                if default_bl:
+                    rt = (1 + tol) * default_bl
+                else:
+                    rt = (1 + tol) * ana.get_bond_value(0, [i, j])
+                cons.append(Hookean(a1=i, a2=int(j), rt=rt, k=spring_constant))
+                print(
+                    f"Applied a Hookean spring between atom {image[i].symbol} and", \
+                    f"atom {image[j].symbol} with a threshold of {rt:.2f} and", \
+                    f"spring constant of {spring_constant}"
+                )
+    rand_ads_index = random.choice(ads_indices)
+    rand_ads_z = image[rand_ads_index].position[2]
+    cons.append(Hookean(a1=rand_ads_index, a2=(0., 0., 1., -(rand_ads_z + des_rt)), k=spring_constant))
+    for i in surface_indices:
+        cons.append(Hookean(a1=i, a2=image[i].position, rt=rec_rt, k=spring_constant))
+    image.set_constraint(cons)
+
         
 def cal_slab_energy(data, calc, traj_output=False):
 
@@ -17,9 +79,14 @@ def cal_slab_energy(data, calc, traj_output=False):
     testobj.calc = calc
     unrelax_slab_energy = testobj.get_potential_energy()
     
+    # add selective dynamics
     if data.fixed:
         c = FixAtoms(mask=data.fixed)
         testobj.set_constraint(c)
+    
+    # added spring constant to prevent massive
+    # surface reconstruction and desorption
+    add_hookean_constraint(testobj)
 
     if traj_output == True:
         os.makedirs("./trajs", exist_ok=True)
