@@ -138,7 +138,7 @@ class MyTread(threading.Thread):
         
         config_yml='../ocp/configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml'    
         checkpoint="../ocp/prediction/gemnet_oc_base_oc20_oc22.pt"     
-        calc = OCPCalculator(config_yml, checkpoint, device='0')
+        calc = OCPCalculator(config_yml, checkpoint, device="0")
                     
         for data in tqdm(self.data_list):            
             # run predictions here
