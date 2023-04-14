@@ -1,6 +1,7 @@
 import torch, os, threading
 from tqdm import tqdm
-
+import sys
+sys.path.append('/shareddata/shell/Shell_repo/')
 from ase.constraints import FixAtoms
 from ase import Atoms
 from ase.optimize import BFGS
@@ -80,7 +81,7 @@ def cal_slab_energy(data, calc, traj_output=False):
     unrelax_slab_energy = testobj.get_potential_energy()
     
     # add selective dynamics
-    if data.fixed:
+    if len(data.fixed):#maybe previous method is more stable...
         c = FixAtoms(mask=data.fixed)
         testobj.set_constraint(c)
     
@@ -93,7 +94,8 @@ def cal_slab_energy(data, calc, traj_output=False):
         files=len(os.listdir('./trajs/'))
         opt = BFGS(testobj, trajectory=f"./trajs/data.slab_formula+{files}"+".traj")
     
-    opt = BFGS(testobj)
+    else:
+        opt = BFGS(testobj)
     opt.run(fmax=0.05, steps=100)
     relax_slab_energy = testobj.get_potential_energy()
     forces=testobj.get_forces()
