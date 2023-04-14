@@ -40,7 +40,7 @@ if __name__=="__main__":
     
     args = read_options()    
     
-    mpid_list = args.list_of_mpids.split(' ')  
+    # mpid_list = args.list_of_mpids.split(' ')  
     
     # all_atoms_slabs = []
     # for mpid in mpid_list:

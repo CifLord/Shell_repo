@@ -55,10 +55,7 @@ def add_hookean_constraint(image, des_rt = 2., rec_rt = 1., spring_constant=5, t
         if ana.unique_bonds[0][i]:
             for j in ana.unique_bonds[0][i]:
                 syms = tuple(sorted([image[i].symbol, image[j].symbol]))
-                if default_bl:
-                    rt = (1 + tol) * default_bl
-                else:
-                    rt = (1 + tol) * ana.get_bond_value(0, [i, j])
+                rt = (1 + tol) * ana.get_bond_value(0, [i, j])
                 cons.append(Hookean(a1=i, a2=int(j), rt=rt, k=spring_constant))
                 print(
                     f"Applied a Hookean spring between atom {image[i].symbol} and", \
@@ -99,8 +96,8 @@ def cal_slab_energy(data, calc, traj_output=False, debug=False):
     
     if debug:
         relax_slab_energy = 0
-        forces = [[0]*]*len(testobj)
-        pos_relaxed = [[0]*]*len(testobj)
+        forces = [[0]*3]*len(testobj)
+        pos_relaxed = [[0]*3]*len(testobj)
     else:
         opt.run(fmax=0.05, steps=100)
         relax_slab_energy = testobj.get_potential_energy()
