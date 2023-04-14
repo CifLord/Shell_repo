@@ -28,6 +28,8 @@ def read_options():
     parser.add_argument("-k", "--mapikey", dest="MAPIKEY", type=str, 
                         default='HO6BA47aEuOPR8Puc0qshrc6G9596FNa',
                         help="Materials Project API KEY")
+    parser.add_argument("-b", "--debug", dest="debug", type=str, default=False, 
+                        help="Run in debug mode, ie don't run the ASE calculator but do everything else")
 
     args = parser.parse_args()
 
@@ -60,8 +62,8 @@ if __name__=="__main__":
     
     # equally distribute dataset to multiple threads
     for i in range(args.number_of_threads):
-        lp = range(int(len(input_lmdb)/args.number_of_threads)*i, int(len(input_lmdb)/args.number_of_threads)*(1+i))         
-        thread = MyTread([input_lmdb[ii] for ii in lp], args.output_lmdb)
+        lp = range(int(len(input_lmdb)/args.number_of_threads)*i, int(len(input_lmdb)/args.number_of_threads)*(1+i))
+        thread = MyTread([input_lmdb[ii] for ii in lp], args.output_lmdb, debug=args.debug)
         thread.start()
         # sys.stdout = open(os.devnull, "w") # what is this?
     

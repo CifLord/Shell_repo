@@ -73,7 +73,7 @@ def add_hookean_constraint(image, des_rt = 2., rec_rt = 1., spring_constant=5, t
     image.set_constraint(cons)
 
         
-def cal_slab_energy(data, calc, traj_output=False):
+def cal_slab_energy(data, calc, traj_output=False, debug=False):
 
     testobj = Atoms(data.atomic_numbers, positions=data.pos, tags=data.tags, 
                     cell=data.cell.squeeze(), pbc=True)
@@ -96,18 +96,24 @@ def cal_slab_energy(data, calc, traj_output=False):
     
     else:
         opt = BFGS(testobj)
-    opt.run(fmax=0.05, steps=100)
-    relax_slab_energy = testobj.get_potential_energy()
-    forces=testobj.get_forces()
-    pos_relaxed=testobj.get_positions()
+    
+    if debug:
+        relax_slab_energy = 0
+        forces = [[0]*]*len(testobj)
+        pos_relaxed = [[0]*]*len(testobj)
+    else:
+        opt.run(fmax=0.05, steps=100)
+        relax_slab_energy = testobj.get_potential_energy()
+        forces=testobj.get_forces()
+        pos_relaxed=testobj.get_positions()
     
     return unrelax_slab_energy, relax_slab_energy, forces, pos_relaxed
 
 
-def add_info(data, calc):
+def add_info(data, calc, debug=False):
     
     unrelax_slab_energy, relax_slab_energy,forces, pos_relaxed = \
-    cal_slab_energy(data, calc, traj_output=True)
+    cal_slab_energy(data, calc, traj_output=True, debug=debug)
     
     data.y = relax_slab_energy
     data.unrelax_energy = unrelax_slab_energy
@@ -119,12 +125,13 @@ def add_info(data, calc):
 
 class MyTread(threading.Thread):
 
-    def __init__(self, datalist, pathname):
+    def __init__(self, datalist, pathname, debug=False):
         
         threading.Thread.__init__(self)
         
         self.data_list = datalist
         self.pathname = pathname
+        self.debug = debug
     
     def run(self):        
         
@@ -138,7 +145,7 @@ class MyTread(threading.Thread):
                     
         for data in tqdm(self.data_list):            
             # run predictions here
-            data = add_info(data, calc)
+            data = add_info(data, calc, debug=self.debug)
             data_list_E.append(data)
             
             if len(data_list_E)>=10: 
