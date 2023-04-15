@@ -15,7 +15,7 @@ from ase.geometry.analysis import Analysis
 import random
 
 
-def add_hookean_constraint(image, des_rt = 2., rec_rt = 1., spring_constant=5, tol=0.3):
+def add_hookean_constraint(image, des_rt = 2., rec_rt = 1., spring_constant=7.5, tol=0.15):
     """Applies a Hookean restorative force to prevent adsorbate desorption, dissociation and
     surface reconstruction.
     All bonded pairs in the image will be found with ase Analysis class. The threshold length
