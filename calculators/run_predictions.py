@@ -65,6 +65,6 @@ if __name__=="__main__":
         lp = range(int(len(input_lmdb)/args.number_of_threads)*i, int(len(input_lmdb)/args.number_of_threads)*(1+i))
         thread = MyTread([input_lmdb[ii] for ii in lp], args.output_lmdb, debug=args.debug)
         thread.start()
-        # sys.stdout = open(os.devnull, "w") # what is this?
+        sys.stdout = open(os.devnull, "w") # what is this?
     
     print('Finished the ads-slab energy prediction task')

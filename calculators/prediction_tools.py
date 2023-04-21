@@ -5,11 +5,9 @@ sys.path.append('/shareddata/shell/Shell_repo/')
 from ase.constraints import FixAtoms
 from ase import Atoms
 from ase.optimize import BFGS
-
+import numpy as np
 from ocpmodels.common.relaxation.ase_utils import OCPCalculator
-
 from structure_generation.lmdb_generator import generate_lmdb
-
 from ase.constraints import Hookean
 from ase.geometry.analysis import Analysis
 import random
@@ -49,22 +47,25 @@ def add_hookean_constraint(image, des_rt = 2., rec_rt = 1., spring_constant=7.5,
     ana = Analysis(image)
     cons = image.constraints
     tags = image.get_tags()
-    surface_indices = [i for i, tag in enumerate(tags) if tag == 1]
-    ads_indices = [i for i, tag in enumerate(tags) if tag == 2]
-    for i in ads_indices:
-        if ana.unique_bonds[0][i]:
-            for j in ana.unique_bonds[0][i]:
-                syms = tuple(sorted([image[i].symbol, image[j].symbol]))
-                rt = (1 + tol) * ana.get_bond_value(0, [i, j])
-                cons.append(Hookean(a1=i, a2=int(j), rt=rt, k=spring_constant))
-                print(
-                    f"Applied a Hookean spring between atom {image[i].symbol} and", \
-                    f"atom {image[j].symbol} with a threshold of {rt:.2f} and", \
-                    f"spring constant of {spring_constant}"
-                )
-    rand_ads_index = random.choice(ads_indices)
-    rand_ads_z = image[rand_ads_index].position[2]
-    cons.append(Hookean(a1=rand_ads_index, a2=(0., 0., 1., -(rand_ads_z + des_rt)), k=spring_constant))
+    surface_indices = np.where(tags==1)[0]  #[i for i, tag in enumerate(tags) if tag == 1]
+    ads_indices = np.where(tags==2)[0]      #[i for i, tag in enumerate(tags) if tag == 2]
+    if len(ads_indices)==0:
+        pass
+    else:
+        for i in ads_indices:
+            if ana.unique_bonds[0][i]:
+                for j in ana.unique_bonds[0][i]:
+                    syms = tuple(sorted([image[i].symbol, image[j].symbol]))
+                    rt = (1 + tol) * ana.get_bond_value(0, [i, j])
+                    cons.append(Hookean(a1=i, a2=int(j), rt=rt, k=spring_constant))
+                    print(
+                        f"Applied a Hookean spring between atom {image[i].symbol} and", \
+                        f"atom {image[j].symbol} with a threshold of {rt:.2f} and", \
+                        f"spring constant of {spring_constant}"
+                    )
+        rand_ads_index = random.choice(ads_indices)
+        rand_ads_z = image[rand_ads_index].position[2]
+        cons.append(Hookean(a1=rand_ads_index, a2=(0., 0., 1., -(rand_ads_z + des_rt)), k=spring_constant))
     for i in surface_indices:
         cons.append(Hookean(a1=i, a2=image[i].position, rt=rec_rt, k=spring_constant))
     image.set_constraint(cons)
