@@ -3,7 +3,9 @@ from pymatgen.db import QueryEngine
 import numpy as np
 
 from pymatgen.entries.computed_entries import ComputedEntry
-from mp_api.client import MPRester
+# from mp_api.client import MPRester
+from pymatgen.cli.pmg_query import MPRester
+mprester = MPRester()
 
 from pymongo import MongoClient
 from matplotlib import pylab as plt
@@ -54,7 +56,7 @@ class SurfaceQueryEngine(QueryEngine):
         self.surface_properties = surface_properties
         self.encoder = NpEncoder()
         self.MAPIKEY = MAPIKEY
-        self.mprester = MPRester(MAPIKEY)
+        self.mprester = mprester
         self.surf_plt = None
         self.slab_entries = None
         self.rxn_diagram_xlabels = ['$2H_2O_{(l)}+*$', '$OH*$', '$O*$', '$OOH*$', '$O_{2(g)}+*$']
@@ -150,7 +152,7 @@ class SurfaceQueryEngine(QueryEngine):
                 slabentry.color = hkl_color_dict[hkl]
 
             bulk_entry = self.mprester.get_entry_by_material_id(entry_id, inc_structure=True, 
-                                                                conventional_unit_cell=True)[0]
+                                                                conventional_unit_cell=True)
             # get the slab entries and preset their surface energies as functions of delta mu_O only
             ref_entries = get_ref_entries(bulk_entry, MAPIKEY=self.MAPIKEY)
             for slabentry in slabentries:
@@ -166,8 +168,7 @@ class SurfaceQueryEngine(QueryEngine):
         return surfplt_dict
     
     def get_e_transfer_corr(self, T=0, U=0, pH=0):
-        proton_activity = 10**(-1*pH)
-        return -1*U + kB*T * JtoeV * np.log(proton_activity)
+        return -1*U + kB*T * JtoeV * -1*pH* np.log(10)
     
     def get_gibbs_adsorption_energies(self, adsorbate, criteria=None, T=0, U=0, pH=0, P=0.1):
             
