@@ -101,6 +101,8 @@ def cal_slab_energy(data, calc, traj_output=False, debug=False):
         pos_relaxed = [[0]*3]*len(testobj)
     else:
         opt.run(fmax=0.05, steps=100)
+        del testobj.constraints[1:]
+        opt.run(fmax=0.05, steps=30)
         relax_slab_energy = testobj.get_potential_energy()
         forces=testobj.get_forces()
         pos_relaxed=testobj.get_positions()
@@ -117,29 +119,30 @@ def add_info(data, calc, debug=False):
     data.unrelax_energy = unrelax_slab_energy
     data.pos_relaxed = torch.Tensor(pos_relaxed)
     data.force = torch.Tensor(forces)
+    if torch.max(data.force)>=0.055:
+        data.preds='Failed'
         
     return data  
     
 
-class MyTread(threading.Thread):
+class MyThread(threading.Thread):
 
-    def __init__(self, datalist, pathname, debug=False):
+    def __init__(self, datalist, pathname, gpus = 0, debug = False):
         
         threading.Thread.__init__(self)
         
         self.data_list = datalist
         self.pathname = pathname
+        self.gpus=gpus
         self.debug = debug
+        
     
-    def run(self):        
-        
-        # power outage: T1: 800 T2,750, T3 700
-        data_list_E = []
-        tot = len(self.data_list)
-        
+    def run(self):
+    
+        data_list_E = []        
         config_yml='../ocp/configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml'    
         checkpoint="../ocp/prediction/gemnet_oc_base_oc20_oc22.pt"     
-        calc = OCPCalculator(config_yml, checkpoint, device="0")
+        calc = OCPCalculator(config_yml, checkpoint, device=str(self.gpus))
                     
         for data in tqdm(self.data_list):            
             # run predictions here

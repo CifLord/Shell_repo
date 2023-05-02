@@ -1,10 +1,10 @@
 import sys, random, os, json, threading, lmdb, pickle, torch, argparse
 sys.path.append('/shareddata/shell/Shell_repo/')
-from prediction_tools import MyTread
+from prediction_tools import MyThread
 from ocpmodels.datasets import LmdbDataset
-
+import logging
 from structure_generation.bare_slabs import slab_generator
-from structure_generation.lmdb_generator import generate_lmdb
+from structure_generation.lmdb_generator import generate_lmdb,lmdb_size
 from structure_generation.oxide_adsorption import surface_adsorption
 from structure_generation.lmdb_generator import convert_atoms_data
 
@@ -15,9 +15,9 @@ def read_options():
                         help="List of mpids to run slab/adslab predictions on")
     parser.add_argument("-i", "--input_lmdb", dest="input_lmdb", type=str, 
                         help="Name of lmdb file to write slab/adslabs to (prior to predictions)")
-    parser.add_argument("-o", "--output_lmdb", dest="output_lmdb", type=str, 
-                        help="Name of lmdb file to write predictions of slab/adslab to")
-    parser.add_argument("-d", "--nthreads", dest="number_of_threads", type=int, default=3,
+    #parser.add_argument("-o", "--output_lmdb", dest="output_lmdb", type=str, 
+                        #help="Name of lmdb file to write predictions of slab/adslab to")
+    parser.add_argument("-d", "--nthreads", dest="number_of_threads", type=int, default=4,
                         help="Number of threads to distribute predictions to")
     parser.add_argument("-w", "--mmi", dest="mmi", type=int, default=1,
                         help="Max miller index")
@@ -39,32 +39,47 @@ def read_options():
 if __name__=="__main__":
     
     args = read_options()    
-    
-    # mpid_list = args.list_of_mpids.split(' ')  
-    
-    # all_atoms_slabs = []
-    # for mpid in mpid_list:
+    mpid_list = args.list_of_mpids.split(' ')  
+    p=0
+    logging.basicConfig(filename='logfile.log', level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+    for mpid in mpid_list:
+        all_atoms_slabs = []        
+        # Generate all bare slabs
+        slab_atoms = slab_generator(mpid, args.mmi, args.slab_size, args.vac_size, 
+                                    MAPIKEY=args.MAPIKEY, height_tol=2, min_lw=8, tol=0.1, 
+                                    functional='GemNet-OC', count_undercoordination=False)
+        if len(slab_atoms)==0:
+            continue
+        all_atoms_slabs.extend(slab_atoms)        
+        # Generate all adslabs
+        for slab in slab_atoms:
+            adslabs = surface_adsorption(convert_atoms_data(slab))
+            all_atoms_slabs.extend(adslabs)
+        input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:05d}'.format(p)+'.lmdb' 
+        logging.info('Total number of predictions: %s' %(len(all_atoms_slabs)))       
+        #print('Total number of predictions: %s' %(len(all_atoms_slabs)))
         
-    #     # Generate all bare slabs
-    #     slab_atoms = slab_generator(mpid, args.mmi, args.slab_size, args.vac_size, 
-    #                                 MAPIKEY=args.MAPIKEY, height_tol=2, min_lw=8, tol=0.1, 
-    #                                 functional='GemNet-OC', count_undercoordination=False)
-    #     all_atoms_slabs.extend(slab_atoms)
-        
-    #     # Generate all adslabs
-    #     for slab in slab_atoms:
-    #         adslabs = surface_adsorption(convert_atoms_data(slab))
-    #         all_atoms_slabs.extend(adslabs)
-
-    #print('Total number of predictions: %s' %(len(all_atoms_slabs)))
-    #generate_lmdb(all_atoms_slabs, args.input_lmdb)
-    input_lmdb = LmdbDataset({'src': args.input_lmdb})
-    
-    # equally distribute dataset to multiple threads
-    for i in range(args.number_of_threads):
-        lp = range(int(len(input_lmdb)/args.number_of_threads)*i, int(len(input_lmdb)/args.number_of_threads)*(1+i))
-        thread = MyTread([input_lmdb[ii] for ii in lp], args.output_lmdb, debug=args.debug)
-        thread.start()
-        sys.stdout = open(os.devnull, "w") # what is this?
-    
-    print('Finished the ads-slab energy prediction task')
+        if lmdb_size(input_pathname) >=10000:
+            p+=1
+            input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:05d}'.format(p)+'.lmdb'                  
+        generate_lmdb(all_atoms_slabs, input_pathname)
+        #print('finished slab generation: %s' %(mpid))
+        logging.info('finished slab generation: %s' %(mpid)) 
+    input_lmdbs=[args.input_lmdb.rstrip('.lmdb')+'{:05d}'.format(p)+'.lmdb' for p in range(p)]    
+    for i in input_lmdbs:
+        input_lmdb = LmdbDataset({'src': i})
+        output_lmdb = i.rstrip('.lmdb')+'_ads'+'.lmdb'
+        # equally distribute dataset to multiple threads
+        for i in range(args.number_of_threads):
+            # set one 32G GPU run 4 threading, the maximum is 2
+            if i//5==1:
+                gpus=1   
+            elif i//5==2:
+                gpus=2             
+            lp = range(int(len(input_lmdb)/args.number_of_threads)*i, int(len(input_lmdb)/args.number_of_threads)*(1+i))
+            thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, gpus, debug=args.debug)
+            thread.start()
+            sys.stdout = open(os.devnull, "w")
+    if i%1000 == 0:
+        logging.info('finished slab generation: %s' %(mpid))        
+        #print('Finished the ads-slab energy prediction task')

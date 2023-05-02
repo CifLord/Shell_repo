@@ -66,3 +66,19 @@ def generate_lmdb(atoms_list: object, pathname: str):
         txn.commit()
         db.sync()
     db.close()    
+    
+    
+def lmdb_size(pathname):
+    
+    db = lmdb.open(
+    pathname,
+    map_size=1099511627 * 2,
+    subdir=False,
+    meminit=False,
+    map_async=True,
+    ) 
+    txn=db.begin(write=True)
+    lmdbsize=txn.stat()['entries']  
+    db.close()
+
+    return lmdbsize 
