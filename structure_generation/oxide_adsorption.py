@@ -73,7 +73,7 @@ def strip_entry(input_string):
     else:
         return (input_string)
 
-def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1], MAPIKEY=MAPIKEY):
+def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1], MAPIKEY=MAPIKEY, ads_dict=ads_dict):
     """
     Gets all adsorbed slab for a slab. Will always return 6 adslabs, 
         1 O* saturated slab and 5 OH saturated slabs. 4 of the OH  
