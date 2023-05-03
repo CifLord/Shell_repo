@@ -106,7 +106,7 @@ class SurfaceQueryEngine(QueryEngine):
             if 'adslab-' in dat.rid:
                 
                 if dat.slab_rid not in slab_entries.keys():
-                    doc = self.surface_properties.find_one({'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
+                    doc = self.surface_properties.find_one({'rid': dat.slab_rid})
                     if doc:
                         clean_dat = Data.from_dict(doc)
                         slab_entries[dat.slab_rid] = get_slab_entry(clean_dat, relaxed=relaxed,
@@ -190,10 +190,14 @@ class SurfaceQueryEngine(QueryEngine):
                 
                 Eads = []
                 for adsentry in self.slab_entries.values():
+                    if not adsentry.clean_entry:
+                        continue
                     if 'adslab-' in adsentry.entry_id and adsentry.clean_entry.entry_id == slab_rid:
                         if adsentry.data['adsorbate'] == adsorbate:
                             Eads.append(adsentry.gibbs_binding_energy(eads=True))
-                            
+                
+                if not Eads:
+                    continue
                 Gads_dict[mpid][hkl] = sorted(Eads)[0] + self.Gcorr[adsorbate]
                 
         return Gads_dict
