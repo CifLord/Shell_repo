@@ -109,8 +109,9 @@ class SurfaceQueryEngine(QueryEngine):
                     doc = self.surface_properties.find_one({'rid': dat.slab_rid})
                     if doc:
                         clean_dat = Data.from_dict(doc)
-                        slab_entries[dat.slab_rid] = get_slab_entry(clean_dat, relaxed=relaxed,
-                                                                    data={'mpid': dat.entry_id})
+                        clean_dat = get_slab_entry(clean_dat, relaxed=relaxed,
+                                                   data={'mpid': dat.entry_id})
+                        slab_entries[dat.slab_rid] = clean_dat
                     else:
                         clean_dat = None
                 else:
