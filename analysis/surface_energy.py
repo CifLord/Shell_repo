@@ -156,7 +156,7 @@ def get_slab_object(dat, relaxed=False):
 def get_slab_entry(dat, color=None, relaxed=False, clean_slab_entry=None, ads_entries=None, data={}):
     
     slab = get_slab_object(dat, relaxed=relaxed)
-    e = dat.y if 'adslab-' not in dat.rid else dat.ads_E
+    e = dat.y if 'adslab-' not in dat.rid else dat.y
     return SlabEntry(slab, e, tuple(slab.miller_index), 
                      label=tuple(slab.miller_index), color=color, 
                      entry_id=dat.rid, clean_entry=clean_slab_entry, 
