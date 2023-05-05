@@ -11,17 +11,14 @@ from structure_generation.lmdb_generator import convert_atoms_data
 def read_options():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--mpids", dest="list_of_mpids", type=str, 
-                        help="List of mpids to run slab/adslab predictions on")
+
     parser.add_argument("-i", "--input_lmdb", dest="input_lmdb", type=str, 
                         help="Name of lmdb file to write slab/adslabs to (prior to predictions)")
-    #parser.add_argument("-o", "--output_lmdb", dest="output_lmdb", type=str, 
-                        #help="Name of lmdb file to write predictions of slab/adslab to")
-    parser.add_argument("-j", "--batch", dest="batch", type=int, default=5, 
-                        help="number of batch size in one GPU")    
-    parser.add_argument("-q", "--ngpus", dest="number_of_gpus", type=int, default=3, 
-                        help="number of GPUs")                 
-    parser.add_argument("-d", "--nthreads", dest="number_of_threads", type=int, default=5,
+    parser.add_argument("-j", "--json_list", dest="json_path", type=str,default=None, 
+                        help="Name of json file to of mp-ids")
+    parser.add_argument("-m", "--mpids", dest="list_of_mpids", type=str, default=None,
+                        help="List of mpids to run slab/adslab predictions on")
+    parser.add_argument("-d", "--nthreads", dest="number_of_threads", type=int, default=4,
                         help="Number of threads to distribute predictions to")
     parser.add_argument("-w", "--mmi", dest="mmi", type=int, default=1,
                         help="Max miller index")
@@ -42,8 +39,16 @@ def read_options():
 
 if __name__=="__main__":
     
-    args = read_options()    
-    mpid_list = args.list_of_mpids.split(' ')  
+    args = read_options()  
+    if args.list_of_mpids is None:
+        if args.json_path is None:
+            raise TypeError("Need input mp-ids,either in json or list")
+        else:        
+            with open(args.json_path) as f:
+                mpid_list=json.load(f)
+    else:    
+        mpid_list = args.list_of_mpids.split(' ')
+      
     p=0
     logging.basicConfig(filename='logfile.log', level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
     os.makedirs('prediction',exist_ok=True)
@@ -70,23 +75,15 @@ if __name__=="__main__":
         generate_lmdb(all_atoms_slabs, input_pathname)
         #print('finished slab generation: %s' %(mpid))
         logging.info('finished slab generation: %s' %(mpid)) 
-    input_lmdbs=[args.input_lmdb.rstrip('.lmdb')+'{:05d}'.format(p)+'.lmdb' for p in range(p)]    
+    input_lmdbs=[args.input_lmdb.rstrip('.lmdb')+'{:05d}'.format(p)+'.lmdb' for p in range(p)]   
+    logging.info('finished all slab generation: %s' %(mpid)) 
     for i in input_lmdbs:
         input_lmdb = LmdbDataset({'src': i})
         output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
         # equally distribute dataset to multiple threads
-
-        for j in range(args.number_of_threads):
-            # allocate GPUs based on the index of the thread
-            gpus = min(j // args.batch, args.number_of_gpus)
-            # calculate the subset of the input dataset to process in this thread
-            start_idx = j * len(input_lmdb) // args.number_of_threads
-            end_idx = (j + 1) * len(input_lmdb) // args.number_of_threads
-            # create a thread with the subset of the input dataset
-            thread = MyThread(input_lmdb[start_idx:end_idx], output_lmdb, gpus, debug=args.debug)
+        for j in range(args.number_of_threads): 
+            gpus=0            
+            lp = range(int(len(input_lmdb)/args.number_of_threads)*j, int(len(input_lmdb)/args.number_of_threads)*(1+j))
+            thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, gpus, debug=args.debug)
             thread.start()
-            # suppress stdout to reduce clutter
             sys.stdout = open(os.devnull, "w")
-        if i%2000 == 0:
-            logging.info('finished slab generation: %s' %(i))        
-            #print('Finished the ads-slab energy prediction task')
