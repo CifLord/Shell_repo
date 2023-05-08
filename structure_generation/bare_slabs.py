@@ -7,7 +7,7 @@ from collections import defaultdict
 from ase.constraints import FixAtoms
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 from pymatgen.ext.matproj import MPRester
-
+#from mp_api.client import MPRester
 from database.generate_metadata import write_metadata_json
 from structure_generation.MXide_adsorption import make_superslab_with_partition, get_repeat_from_min_lw
 

@@ -2,7 +2,8 @@
 
 echo starting 
 
-CUDA_VISIBLE_DEVICES=1,2,3 python run_predictions_gpu.py -m "mp-505009 mp-21908 mp-505271 mp-674490 mp-1224786" -i "prediction/test_mp2.lmdb" -j 5 -q 2 -d 10 
+CUDA_VISIBLE_DEVICES=2 python run_predictions.py -m "mp-505009 " -i "prediction/phase1.lmdb" &
+CUDA_VISIBLE_DEVICES=3 python run_predictions.py -m "candidates.json" -i "prediction/phase2.lmdb" &
 
 
 echo finished

@@ -27,7 +27,7 @@ def read_options():
     parser.add_argument("-v", "--vac_size", dest="vac_size", type=float, default=12.5,
                         help="Vacuum size")
     parser.add_argument("-k", "--mapikey", dest="MAPIKEY", type=str, 
-                        default='HO6BA47aEuOPR8Puc0qshrc6G9596FNa',
+                        default='11nq6MypZgP6PxZwugyPGW9w6UFVF5Ja',
                         help="Materials Project API KEY")
     parser.add_argument("-b", "--debug", dest="debug", type=str, default=False, 
                         help="Run in debug mode, ie don't run the ASE calculator but do everything else")
@@ -48,9 +48,10 @@ if __name__=="__main__":
                 mpid_list=json.load(f)
     else:    
         mpid_list = args.list_of_mpids.split(' ')
-      
+ 
     p=0
-    logging.basicConfig(filename='logfile.log', level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+    log_fname=str(args.input_lmdb).replace('.lmdb','.log')
+    logging.basicConfig(filename=log_fname, level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
     os.makedirs('prediction',exist_ok=True)
     for mpid in mpid_list:
         all_atoms_slabs = []        
@@ -65,17 +66,20 @@ if __name__=="__main__":
         for slab in slab_atoms:
             adslabs = surface_adsorption(convert_atoms_data(slab))
             all_atoms_slabs.extend(adslabs)
-        input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:05d}'.format(p)+'.lmdb' 
+        input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb' 
         logging.info('Total number of predictions: %s' %(len(all_atoms_slabs)))       
         #print('Total number of predictions: %s' %(len(all_atoms_slabs)))
         
         if lmdb_size(input_pathname) >=10000:
             p+=1
-            input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:05d}'.format(p)+'.lmdb'                  
+            input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb'                  
         generate_lmdb(all_atoms_slabs, input_pathname)
         #print('finished slab generation: %s' %(mpid))
         logging.info('finished slab generation: %s' %(mpid)) 
-    input_lmdbs=[args.input_lmdb.rstrip('.lmdb')+'{:05d}'.format(p)+'.lmdb' for p in range(p)]   
+    if p==0:
+        input_lmdbs=[args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb']
+    else:        
+        input_lmdbs=[args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb' for p in range(p)]   
     logging.info('finished all slab generation: %s' %(mpid)) 
     for i in input_lmdbs:
         input_lmdb = LmdbDataset({'src': i})
