@@ -48,7 +48,7 @@ if __name__=="__main__":
                 mpid_list=json.load(f)
     else:    
         mpid_list = args.list_of_mpids.split(' ')
- 
+
     p=0
     log_fname=str(args.input_lmdb).replace('.lmdb','.log')
     logging.basicConfig(filename=log_fname, level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
