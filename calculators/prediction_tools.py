@@ -1,7 +1,10 @@
 import torch, os, threading
 from tqdm import tqdm
 import sys
-sys.path.append('/shareddata/shell/Shell_repo/')
+import vaspjob
+f = vaspjob.__file__
+sys.path.append(f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), ''))
+
 from ase.constraints import FixAtoms
 from ase import Atoms
 from ase.optimize import BFGS
