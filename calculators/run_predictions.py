@@ -1,7 +1,8 @@
 import sys, random, os, json, threading, lmdb, pickle, torch, argparse
 import vaspjob
 f = vaspjob.__file__
-sys.path.append(f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), ''))
+repo_dir = f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), '')
+sys.path.append(repo_dir)
 
 from prediction_tools import MyThread
 from ocpmodels.datasets import LmdbDataset

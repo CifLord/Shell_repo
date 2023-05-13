@@ -3,7 +3,8 @@ from tqdm import tqdm
 import sys
 import vaspjob
 f = vaspjob.__file__
-sys.path.append(f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), ''))
+repo_dir = f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), '')
+sys.path.append(repo_dir)
 
 from ase.constraints import FixAtoms
 from ase import Atoms
@@ -143,8 +144,8 @@ class MyThread(threading.Thread):
     def run(self):
     
         data_list_E = []        
-        config_yml='../ocp/configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml'    
-        checkpoint="../ocp/prediction/gemnet_oc_base_oc20_oc22.pt"     
+        config_yml=os.path.join(repo_dir, 'ocp/configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml')
+        checkpoint=os.path.join(repo_dir, "ocp/prediction/gemnet_oc_base_oc20_oc22.pt")
         calc = OCPCalculator(config_yml, checkpoint, cpu=False)
                     
         for data in tqdm(self.data_list):            
