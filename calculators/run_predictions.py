@@ -1,4 +1,4 @@
-import sys, random, os, json, threading, lmdb, pickle, torch, argparse
+import sys, random, os, json, threading, lmdb, pickle, torch, argparse, time
 import vaspjob
 f = vaspjob.__file__
 repo_dir = f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), '')
@@ -8,7 +8,7 @@ from prediction_tools import MyThread
 from ocpmodels.datasets import LmdbDataset
 import logging
 from structure_generation.bare_slabs import slab_generator
-from structure_generation.lmdb_generator import generate_lmdb,lmdb_size
+from structure_generation.lmdb_generator import generate_lmdb, lmdb_size
 from structure_generation.oxide_adsorption import surface_adsorption
 from structure_generation.lmdb_generator import convert_atoms_data
 
@@ -35,6 +35,8 @@ def read_options():
                         help="Materials Project API KEY")
     parser.add_argument("-b", "--debug", dest="debug", type=str, default=False, 
                         help="Run in debug mode, ie don't run the ASE calculator but do everything else")
+    parser.add_argument("-g", "--gpus", dest="gpus", type=int, default=1, 
+                        help="Number of GPUs available")
 
     args = parser.parse_args()
 
@@ -42,6 +44,8 @@ def read_options():
 
 
 if __name__=="__main__":
+    
+    initT = time.time()
     
     args = read_options()  
     if args.list_of_mpids is None:
@@ -90,8 +94,9 @@ if __name__=="__main__":
         output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
         # equally distribute dataset to multiple threads
         for j in range(args.number_of_threads): 
-            gpus=0            
             lp = range(int(len(input_lmdb)/args.number_of_threads)*j, int(len(input_lmdb)/args.number_of_threads)*(1+j))
-            thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, gpus, debug=args.debug)
+            thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, args.gpus, debug=args.debug)
             thread.start()
             sys.stdout = open(os.devnull, "w")
+    
+    print('Finished all OC22 predictions in %s' %(time.time() - initT))

@@ -131,7 +131,7 @@ def add_info(data, calc, debug=False):
 
 class MyThread(threading.Thread):
 
-    def __init__(self, datalist, pathname, gpus = 0, debug = False):
+    def __init__(self, datalist, pathname, gpus=0, debug=False):
         
         threading.Thread.__init__(self)
         
