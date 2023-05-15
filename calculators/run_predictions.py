@@ -84,6 +84,7 @@ if __name__=="__main__":
         generate_lmdb(all_atoms_slabs, input_pathname)
         #print('finished slab generation: %s' %(mpid))
         logging.info('finished slab generation: %s' %(mpid)) 
+        
     if p==0:
         input_lmdbs=[args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb']
     else:        
@@ -94,9 +95,11 @@ if __name__=="__main__":
         output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
         # equally distribute dataset to multiple threads
         for j in range(args.number_of_threads): 
-            lp = range(int(len(input_lmdb)/args.number_of_threads)*j, int(len(input_lmdb)/args.number_of_threads)*(1+j))
-            thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, args.gpus, debug=args.debug)
+            lp = range(int(len(input_lmdb)/args.number_of_threads)*j, 
+                       int(len(input_lmdb)/args.number_of_threads)*(1+j))
+            thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, 
+                              args.gpus, debug=args.debug)
             thread.start()
             sys.stdout = open(os.devnull, "w")
     
-    print('Finished all OC22 predictions in %s' %(time.time() - initT))
+    logging.info('Finished all OC22 predictions in %s' %(time.time() - initT))
