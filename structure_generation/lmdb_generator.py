@@ -52,7 +52,7 @@ def generate_lmdb(atoms_list: object, pathname: str):
     pathname = pathname + '.lmdb' if '.lmdb' not in pathname else pathname
     db = lmdb.open(
         pathname,
-        map_size=1099511627 * 2,
+        map_size=1099511627 * 3,
         subdir=False,
         meminit=False,
         map_async=True,
@@ -72,7 +72,7 @@ def lmdb_size(pathname):
     
     db = lmdb.open(
     pathname,
-    map_size=1099511627 * 2,
+    map_size=1099511627 * 3,
     subdir=False,
     meminit=False,
     map_async=True,

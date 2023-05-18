@@ -59,7 +59,8 @@ if __name__=="__main__":
 
     p=0
     log_fname=str(args.input_lmdb).replace('.lmdb','.log')
-    logging.basicConfig(filename=log_fname, level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+    logging.basicConfig(filename=log_fname, level=logging.INFO, 
+                        format='%(asctime)s %(levelname)s: %(message)s')
     os.makedirs('prediction',exist_ok=True)
     for mpid in mpid_list:
         all_atoms_slabs = []        

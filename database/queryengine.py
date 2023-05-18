@@ -169,7 +169,7 @@ class SurfaceQueryEngine(QueryEngine):
         return surfplt_dict
     
     def get_e_transfer_corr(self, T=0, U=0, pH=0):
-        return -1*U + kB*T * JtoeV * -1*pH* np.log(10)
+        return -1*U + kB*T * JtoeV * pH* np.log(10)
     
     def get_gibbs_adsorption_energies(self, adsorbate, criteria=None, T=0, U=0, pH=0, P=0.1):
             

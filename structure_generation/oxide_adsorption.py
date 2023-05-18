@@ -186,7 +186,7 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1], MAP
 def adsorb_one(slab, mxidegen, adsorbate):
 
     transformed_ads_list = mxidegen.get_transformed_molecule_MXides\
-    (adsorbate, [np.deg2rad(deg) for deg in np.linspace(0, 360, 4)])
+    (adsorbate, [np.deg2rad(deg) for deg in np.linspace(0, 360-120, 3)])
 
     all_adslabs = []
     for coord in mxidegen.MX_adsites:
