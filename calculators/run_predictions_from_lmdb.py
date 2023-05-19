@@ -16,7 +16,7 @@ def read_options():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-i", "--input_lmdb", dest="lmdb_list", type=str, 
+    parser.add_argument("-i", "--lmdb_list", dest="lmdb_list", type=str, 
                         help="Name of lmdb file to write slab/adslabs to (prior to predictions)")
     parser.add_argument("-d", "--nthreads", dest="number_of_threads", type=int, default=4,
                         help="Number of threads to distribute predictions to")
