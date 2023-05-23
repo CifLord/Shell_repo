@@ -20,6 +20,7 @@ from ocpmodels.common.utils import (
     get_max_neighbors_mask,
     get_pbc_distances,
     radius_graph_pbc,
+    scatter_det,
 )
 from ocpmodels.models.base import BaseModel
 from ocpmodels.modules.scaling.compat import load_scales_compat
@@ -141,7 +142,9 @@ class GemNetOC(BaseModel):
     max_neighbors_aint: int
         Maximum number of atom-to-atom interactions per atom.
         Optional. Uses maximum of all other neighbors per default.
-
+    enforce_max_neighbors_strictly: bool
+        When subselected edges based on max_neighbors args, arbitrarily
+        select amongst degenerate edges to have exactly the correct number.
     rbf: dict
         Name and hyperparameters of the radial basis function.
     rbf_spherical: dict
@@ -220,6 +223,7 @@ class GemNetOC(BaseModel):
         max_neighbors_qint: Optional[int] = None,
         max_neighbors_aeaint: Optional[int] = None,
         max_neighbors_aint: Optional[int] = None,
+        enforce_max_neighbors_strictly: bool = True,
         rbf: dict = {"name": "gaussian"},
         rbf_spherical: Optional[dict] = None,
         envelope: dict = {"name": "polynomial", "exponent": 5},
@@ -264,6 +268,7 @@ class GemNetOC(BaseModel):
             max_neighbors_aeaint,
             max_neighbors_aint,
         )
+        self.enforce_max_neighbors_strictly = enforce_max_neighbors_strictly
         self.use_pbc = use_pbc
 
         self.direct_forces = direct_forces
@@ -857,6 +862,7 @@ class GemNetOC(BaseModel):
                 index=subgraph["edge_index"][1],
                 atom_distance=subgraph["distance"],
                 max_num_neighbors_threshold=max_neighbors,
+                enforce_max_strictly=self.enforce_max_neighbors_strictly,
             )
             if not torch.all(edge_mask):
                 subgraph["edge_index"] = subgraph["edge_index"][:, edge_mask]
@@ -1307,11 +1313,11 @@ class GemNetOC(BaseModel):
 
         nMolecules = torch.max(batch) + 1
         if self.extensive:
-            E_t = scatter(
+            E_t = scatter_det(
                 E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
             )  # (nMolecules, num_targets)
         else:
-            E_t = scatter(
+            E_t = scatter_det(
                 E_t, batch, dim=0, dim_size=nMolecules, reduce="mean"
             )  # (nMolecules, num_targets)
 
@@ -1324,7 +1330,7 @@ class GemNetOC(BaseModel):
                         repeats=2,
                         continuous_indexing=True,
                     )
-                    F_st = scatter(
+                    F_st = scatter_det(
                         F_st,
                         id_undir,
                         dim=0,
@@ -1336,7 +1342,7 @@ class GemNetOC(BaseModel):
                 # map forces in edge directions
                 F_st_vec = F_st[:, :, None] * main_graph["vector"][:, None, :]
                 # (nEdges, num_targets, 3)
-                F_t = scatter(
+                F_t = scatter_det(
                     F_st_vec,
                     idx_t,
                     dim=0,

@@ -33,7 +33,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 from torch_geometric.data import Data
 from torch_geometric.utils import remove_self_loops
-from torch_scatter import segment_coo, segment_csr
+from torch_scatter import scatter, segment_coo, segment_csr
 
 if TYPE_CHECKING:
     from torch.nn.modules.module import _IncompatibleKeys
@@ -526,7 +526,9 @@ def get_pbc_distances(
     distances = distance_vectors.norm(dim=-1)
 
     # redundancy: remove zero distances
-    nonzero_idx = torch.arange(len(distances))[distances != 0]
+    nonzero_idx = torch.arange(len(distances), device=distances.device)[
+        distances != 0
+    ]
     edge_index = edge_index[:, nonzero_idx]
     distances = distances[nonzero_idx]
 
@@ -545,10 +547,26 @@ def get_pbc_distances(
 
 
 def radius_graph_pbc(
-    data, radius, max_num_neighbors_threshold, pbc=[True, True, False]
+    data,
+    radius,
+    max_num_neighbors_threshold,
+    enforce_max_neighbors_strictly=False,
+    pbc=[True, True, True],
 ):
     device = data.pos.device
     batch_size = len(data.natoms)
+
+    if hasattr(data, "pbc"):
+        data.pbc = torch.atleast_2d(data.pbc)
+        for i in range(3):
+            if not torch.any(data.pbc[:, i]).item():
+                pbc[i] = False
+            elif torch.all(data.pbc[:, i]).item():
+                pbc[i] = True
+            else:
+                raise RuntimeError(
+                    "Different structures in the batch have different PBC configurations. This is not currently supported."
+                )
 
     # position of the atoms
     atom_pos = data.pos
@@ -688,6 +706,7 @@ def radius_graph_pbc(
         index=index1,
         atom_distance=atom_distance_sqr,
         max_num_neighbors_threshold=max_num_neighbors_threshold,
+        enforce_max_strictly=enforce_max_neighbors_strictly,
     )
 
     if not torch.all(mask_num_neighbors):
@@ -705,13 +724,28 @@ def radius_graph_pbc(
 
 
 def get_max_neighbors_mask(
-    natoms, index, atom_distance, max_num_neighbors_threshold
+    natoms,
+    index,
+    atom_distance,
+    max_num_neighbors_threshold,
+    degeneracy_tolerance=0.01,
+    enforce_max_strictly=False,
 ):
     """
     Give a mask that filters out edges so that each atom has at most
     `max_num_neighbors_threshold` neighbors.
     Assumes that `index` is sorted.
+
+    Enforcing the max strictly can force the arbitrary choice between
+    degenerate edges. This can lead to undesired behaviors; for
+    example, bulk formation energies which are not invariant to
+    unit cell choice.
+
+    A degeneracy tolerance can help prevent sudden changes in edge
+    existence from small changes in atom position, for example,
+    rounding errors, slab relaxation, temperature, etc.
     """
+
     device = natoms.device
     num_atoms = natoms.sum()
 
@@ -763,13 +797,41 @@ def get_max_neighbors_mask(
 
     # Sort neighboring atoms based on distance
     distance_sort, index_sort = torch.sort(distance_sort, dim=1)
+
     # Select the max_num_neighbors_threshold neighbors that are closest
-    distance_sort = distance_sort[:, :max_num_neighbors_threshold]
-    index_sort = index_sort[:, :max_num_neighbors_threshold]
+    if enforce_max_strictly:
+        distance_sort = distance_sort[:, :max_num_neighbors_threshold]
+        index_sort = index_sort[:, :max_num_neighbors_threshold]
+        max_num_included = max_num_neighbors_threshold
+
+    else:
+        effective_cutoff = (
+            distance_sort[:, max_num_neighbors_threshold]
+            + degeneracy_tolerance
+        )
+        is_included = torch.le(distance_sort.T, effective_cutoff)
+
+        # Set all undesired edges to infinite length to be removed later
+        distance_sort[~is_included.T] = np.inf
+
+        # Subselect tensors for efficiency
+        num_included_per_atom = torch.sum(is_included, dim=0)
+        max_num_included = torch.max(num_included_per_atom)
+        distance_sort = distance_sort[:, :max_num_included]
+        index_sort = index_sort[:, :max_num_included]
+
+        # Recompute the number of neighbors
+        num_neighbors_thresholded = num_neighbors.clamp(
+            max=num_included_per_atom
+        )
+
+        num_neighbors_image = segment_csr(
+            num_neighbors_thresholded, image_indptr
+        )
 
     # Offset index_sort so that it indexes into index
     index_sort = index_sort + index_neighbor_offset.view(-1, 1).expand(
-        -1, max_num_neighbors_threshold
+        -1, max_num_included
     )
     # Remove "unused pairs" with infinite distances
     mask_finite = torch.isfinite(distance_sort)
@@ -1042,3 +1104,17 @@ def load_state_dict(
 ):
     incompat_keys = module.load_state_dict(state_dict, strict=False)  # type: ignore
     return _report_incompat_keys(module, incompat_keys, strict=strict)
+
+
+def scatter_det(*args, **kwargs):
+    from ocpmodels.common.registry import registry
+
+    if registry.get("set_deterministic_scatter", no_warning=True):
+        torch.use_deterministic_algorithms(mode=True)
+
+    out = scatter(*args, **kwargs)
+
+    if registry.get("set_deterministic_scatter", no_warning=True):
+        torch.use_deterministic_algorithms(mode=False)
+
+    return out

@@ -15,7 +15,7 @@ See [installation instructions](https://github.com/Open-Catalyst-Project/ocp/blo
 
 ## Installation-step 2
 
-* Install specific versions of Pymatgen and ASE: `pip install pymatgen==2020.4.2 `
+* Install specific versions of ipykernel, pymongo and mpi-client: ` pip install pymongo ipykernel mp-api `
 * Install Catkit from Github: `pip install git+https://github.com/ulissigroup/CatKit.git catkit`
 * Clone this repo and `cd ./Open-Catalyst-Dataset-OC22_dataset/ocdata/`, install with: `pip install -e ..`
 
