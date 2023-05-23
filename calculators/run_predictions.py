@@ -37,6 +37,8 @@ def read_options():
                         help="Run in debug mode, ie don't run the ASE calculator but do everything else")
     parser.add_argument("-g", "--gpus", dest="gpus", type=int, default=1, 
                         help="Number of GPUs available")
+    parser.add_argument("-r", "--run_predictions", dest="run_predictions", type=bool, default=True, 
+                        help="Whether or not to run predictions")
 
     args = parser.parse_args()
 
@@ -59,7 +61,8 @@ if __name__=="__main__":
 
     p=0
     log_fname=str(args.input_lmdb).replace('.lmdb','.log')
-    logging.basicConfig(filename=log_fname, level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+    logging.basicConfig(filename=log_fname, level=logging.INFO, 
+                        format='%(asctime)s %(levelname)s: %(message)s')
     os.makedirs('prediction',exist_ok=True)
     for mpid in mpid_list:
         all_atoms_slabs = []        
@@ -90,16 +93,18 @@ if __name__=="__main__":
     else:        
         input_lmdbs=[args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb' for p in range(p)]   
     logging.info('finished all slab generation: %s' %(mpid)) 
-    for i in input_lmdbs:
-        input_lmdb = LmdbDataset({'src': i})
-        output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
-        # equally distribute dataset to multiple threads
-        for j in range(args.number_of_threads): 
-            lp = range(int(len(input_lmdb)/args.number_of_threads)*j, 
-                       int(len(input_lmdb)/args.number_of_threads)*(1+j))
-            thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, 
-                              args.gpus, debug=args.debug)
-            thread.start()
-            sys.stdout = open(os.devnull, "w")
     
-    logging.info('Finished all OC22 predictions in %s' %(time.time() - initT))
+    if args.run_predictions:
+        for i in input_lmdbs:
+            input_lmdb = LmdbDataset({'src': i})
+            output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
+            # equally distribute dataset to multiple threads
+            for j in range(args.number_of_threads): 
+                lp = range(int(len(input_lmdb)/args.number_of_threads)*j, 
+                           int(len(input_lmdb)/args.number_of_threads)*(1+j))
+                thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, 
+                                  args.gpus, debug=args.debug)
+                thread.start()
+                sys.stdout = open(os.devnull, "w")
+
+        logging.info('Finished all OC22 predictions in %s' %(time.time() - initT))

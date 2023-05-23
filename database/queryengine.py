@@ -3,15 +3,13 @@ from pymatgen.db import QueryEngine
 import numpy as np
 
 from pymatgen.entries.computed_entries import ComputedEntry
-# from mp_api.client import MPRester
-from pymatgen.cli.pmg_query import MPRester
-mprester = MPRester()
+from mp_api.client import MPRester
 
 from pymongo import MongoClient
 from matplotlib import pylab as plt
 
 from database.generate_metadata import NpEncoder
-from analysis.surface_energy import *
+from analysis.surface_energy import get_slab_entry, get_dmu
 from analysis.surface_analysis import *
 
 kB = 1.380649 * 10**(-23)
@@ -46,17 +44,16 @@ class SurfaceQueryEngine(QueryEngine):
             'ads_rid': 'ads-BGg3rg4gerG6', 'rid': 'adslab-reg3g53g3h4h2hj204', 
             'miller_index': (1,1,1), 'Slab': pmg_slab_as_dict, 'calc_type': 'bare_slab'}
     """
-    def __init__(self, MAPIKEY=None, host="mongodb://127.0.0.1", port=27017, 
-                 database='richardtran415', collection='Shell'):
+    def __init__(self, MAPIKEY=None):
 
-        conn = MongoClient(host=host, port=port)
-        db = conn.get_database(database)
-        surface_properties = db[collection]
+        conn = MongoClient(host="mongodb://127.0.0.1", port=27017)
+        db = conn.get_database('richardtran415')
+        surface_properties = db['Shell05022023']
 
         self.surface_properties = surface_properties
         self.encoder = NpEncoder()
         self.MAPIKEY = MAPIKEY
-        self.mprester = mprester
+        self.mprester = MPRester(MAPIKEY)
         self.surf_plt = None
         self.slab_entries = None
         self.rxn_diagram_xlabels = ['$2H_2O_{(l)}+*$', '$OH*$', '$O*$', '$OOH*$', '$O_{2(g)}+*$']
@@ -106,19 +103,15 @@ class SurfaceQueryEngine(QueryEngine):
             if 'adslab-' in dat.rid:
                 
                 if dat.slab_rid not in slab_entries.keys():
-                    doc = self.surface_properties.find_one({'rid': dat.slab_rid})
-                    if doc:
-                        clean_dat = Data.from_dict(doc)
-                        clean_dat = get_slab_entry(clean_dat, relaxed=relaxed,
-                                                   data={'mpid': dat.entry_id})
-                        slab_entries[dat.slab_rid] = clean_dat
-                    else:
-                        clean_dat = None
-                else:
-                    clean_dat = slab_entries[dat.slab_rid]
+                    doc = self.surface_properties.find_one({'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
+                    if not doc:
+                        continue
+                    clean_dat = Data.from_dict(doc)
+                    slab_entries[dat.slab_rid] = get_slab_entry(clean_dat, relaxed=relaxed,
+                                                                data={'mpid': dat.entry_id})
                     
                 entry = get_slab_entry(dat, relaxed=relaxed, 
-                                       clean_slab_entry=clean_dat,
+                                       clean_slab_entry=slab_entries[dat.slab_rid],
                                        ads_entries=[self.mol_entry[dat.adsorbate]],
                                        data={'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
                 entry.Nads_in_slab = dat.nads*sum(self.mol_entry[dat.adsorbate].composition.as_dict().values())
@@ -153,7 +146,7 @@ class SurfaceQueryEngine(QueryEngine):
                 slabentry.color = hkl_color_dict[hkl]
 
             bulk_entry = self.mprester.get_entry_by_material_id(entry_id, inc_structure=True, 
-                                                                conventional_unit_cell=True)
+                                                                conventional_unit_cell=True)[0]
             # get the slab entries and preset their surface energies as functions of delta mu_O only
             ref_entries = get_ref_entries(bulk_entry, MAPIKEY=self.MAPIKEY)
             for slabentry in slabentries:
@@ -169,7 +162,8 @@ class SurfaceQueryEngine(QueryEngine):
         return surfplt_dict
     
     def get_e_transfer_corr(self, T=0, U=0, pH=0):
-        return -1*U + kB*T * JtoeV * -1*pH* np.log(10)
+        proton_activity = 10**(-1*pH)
+        return -1*U + kB*T * JtoeV * np.log(proton_activity)
     
     def get_gibbs_adsorption_energies(self, adsorbate, criteria=None, T=0, U=0, pH=0, P=0.1):
             
@@ -191,14 +185,10 @@ class SurfaceQueryEngine(QueryEngine):
                 
                 Eads = []
                 for adsentry in self.slab_entries.values():
-                    if not adsentry.clean_entry:
-                        continue
                     if 'adslab-' in adsentry.entry_id and adsentry.clean_entry.entry_id == slab_rid:
                         if adsentry.data['adsorbate'] == adsorbate:
                             Eads.append(adsentry.gibbs_binding_energy(eads=True))
-                
-                if not Eads:
-                    continue
+                            
                 Gads_dict[mpid][hkl] = sorted(Eads)[0] + self.Gcorr[adsorbate]
                 
         return Gads_dict
@@ -267,6 +257,7 @@ class SurfaceQueryEngine(QueryEngine):
                                 
         return rxn_diagram_dict
     
+    @property
     def ideal_rxn_diagram(self):
         
         from matplotlib import pylab as ideal_plt
@@ -283,5 +274,4 @@ class SurfaceQueryEngine(QueryEngine):
         plots.append(ideal_plt.plot([3, 4], [G5*(3/4), G5*(3/4)], 'k-', label='Ideal'))
         plots.append(ideal_plt.plot([4, 4], [G5*(3/4), G5], 'k-', label='Ideal'))
         plots.append(ideal_plt.plot([4, 5], [G5, G5], 'k-', label='Ideal'))
-        
         return plots

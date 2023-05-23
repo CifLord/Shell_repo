@@ -1,6 +1,6 @@
-import random, os, json
+import random, os, json, itertools
 import numpy as np
-from sympy import Symbol
+from sympy import Symbol, solve
 from matplotlib import pylab as plt
 
 from analysis.surface_analysis import SurfaceEnergyPlotter
@@ -12,11 +12,10 @@ from analysis.surface_analysis import SlabEntry
 from pymatgen.analysis.wulff import hkl_tuple_to_str
 from pymatgen.entries.computed_entries import ComputedEntry, ComputedStructureEntry
 from pymatgen.io.ase import AseAtomsAdaptor
-from ase import Atoms
-
-
-from pymatgen.analysis.phase_diagram import PDPlotter, PhaseDiagram, PDEntry, ReactionDiagram
+from pymatgen.analysis.phase_diagram import PhaseDiagram, PDEntry
 from pymatgen.core.periodic_table import Element
+
+from ase import Atoms
 
 
 def get_ref_entries(bulk_entry, ref_element='O', MAPIKEY=None):
@@ -353,3 +352,81 @@ def plot_P_vs_T(list_of_dat, T_range, lnP_range, increment=100):
     plt.legend()
     
     return plt
+
+
+def get_surface_pbx_facets(queryengine, criteria, T=298.15):
+
+    entries = list(queryengine.get_slab_entries(criteria).values())
+    ref_entries = {}
+    for entry in entries:
+        bulk_entry = ComputedStructureEntry.from_dict(bulk_oxides_dict[entry.data['mpid']])
+        if entry.data['mpid'] not in ref_entries:
+            ref_entries[entry.data['mpid']] = get_ref_entries(bulk_entry, 
+                                                               MAPIKEY=queryengine.MAPIKEY)
+        preset_slabentry_se(entry, bulk_entry, MAPIKEY=queryengine.MAPIKEY,
+                            ref_entries=ref_entries[entry.data['mpid']])
+        
+    slabentry_dict, pbx_line_dict = {}, {}
+    for slabentry in entries:
+        mpid = slabentry.data['mpid']
+        if mpid not in slabentry_dict.keys():
+            slabentry_dict[mpid] = {}
+            pbx_line_dict[mpid] = {}
+        hkl = slabentry.miller_index
+        if hkl not in slabentry_dict[mpid].keys():
+            slabentry_dict[mpid][hkl] = []
+            pbx_line_dict[mpid][hkl] = {}
+        slabentry_dict[mpid][hkl].append(slabentry)
+    
+    """
+    The surface energy of nonstoichometric oxide surface as a fucntion of pH and O 
+    (e.g. surface grand potential) is used to determine the Pourbaix diagram. It is 
+    given as γ = (E^* - Σnμ_i)/2A. Since we're building a Pourbaix diagram on a per 
+    facet basis, we can just ignore 2A for now since all facets we are considering 
+    have the same surface area. μ_i can be rewritten as the chemical potential of 
+    oxygen only, e.g. μ_O. Here, we assume the following chemical reaction takes 
+    place under an aqueous condition: μ_H2O(l) --> 2μ_H + μ_O. As such, 
+    μ_O = μ_H2O(l) - 2μ_H. We assume μ_H2O(l) = E_H2O (Gibbs free energy of H2O in 
+    a box). We then assume charge transfer when a H atom is in the reaction, e.g.:
+    μ_H = μ_H^+ + μ_e- = 1/2G_H2 - eU + kBTlna^+ via the Nernst Equation. Ergo
+    μ_O = G_H2O(l) - G_H2 + 2eU - 2kBTlna^+. Since we don't have G, we'll just add
+    a correction value for converting between E and G: 
+    μ_O = E_H2O(l) - E_H2 + 2eU - 2kBTlna^+ + ΔG_corr
+    Lastly, we can also reference μ_O to the energy of O2 (keep it simple and 
+    reference to 1/2E_O2 for now) which gives us Δμ_O = μ_O-1/2EO_2 or:
+    Δμ_O = E_H2O(l) - E_H2 + 2eU - 2kBTlna^+ + ΔG_corr - 1/2E_O2
+    As such, the surface grand potential can be written as:
+    2Aγ(U, pH) = E^* - n(E_H2O(l) - E_H2 + 2eU - 2kBTlna^+ + ΔG_corr - 1/2E_O2) 
+    where n determines the number of excess/defficient species relative to oxygen.
+    """
+    muH2O = -14.231 # DFT energy per formula of H2O from MP 
+    muH2 = -6.7714828 # DFT energy per formula of H2 from MP 
+    EO = -4.946243415 # DFT energy per atom of O2 from MP
+    muO = muH2O - muH2 - 2*queryengine.get_e_transfer_corr(T, U=Symbol('U'), pH=Symbol('pH'))
+    
+    for mpid in slabentry_dict.keys():
+        bulk_formula = queryengine.surface_properties.distinct('bulk_reduced_formula',
+                                                               {'entry_id': mpid})[0]
+
+        for hkl in slabentry_dict[mpid].keys():
+            print(hkl)
+            stable_facet = []
+            
+            # get most stable amongst unique stoich.
+            stable_stoich_dict = {}
+            for slabentry in slabentry_dict[mpid][hkl]:
+                if slabentry.composition not in stable_stoich_dict.keys():
+                    stable_stoich_dict[slabentry.composition] = []
+                stable_stoich_dict[slabentry.composition].append(slabentry)
+            for comp in stable_stoich_dict.keys():
+                stable_stoich_dict[comp] = sorted(stable_stoich_dict[comp], key=lambda entry: entry.energy)
+            stable_slabentries = [stable_stoich_dict[c][0] for c in stable_stoich_dict.keys()]
+
+            # Solve system of two eqns for each pair of surfaces as U(pH)
+            for c in itertools.combinations(stable_slabentries, 2):
+                eqn1 = c[0].preset_surface_energy.subs({'delu_O': muO-EO + queryengine.Gcorr['O']})
+                eqn2 = c[1].preset_surface_energy.subs({'delu_O': muO-EO + queryengine.Gcorr['O']})
+                pbx_line_dict[mpid][hkl][c] = solve(eqn1 - eqn2, Symbol('U'))
+                print(solve(eqn1 - eqn2, Symbol('U')))
+                
+    return pbx_line_dict
