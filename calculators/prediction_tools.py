@@ -5,6 +5,7 @@ import vaspjob
 f = vaspjob.__file__
 repo_dir = f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), '')
 sys.path.append(repo_dir)
+from ocpmodels.datasets import LmdbDataset
 
 from ase.constraints import FixAtoms
 from ase import Atoms
@@ -139,6 +140,7 @@ class MyThread(threading.Thread):
         self.pathname = pathname
         self.gpus=gpus
         self.debug = debug
+        self.rids_list = [dat.rid for dat in LmdbDataset({'src': pathname})]
         
     
     def run(self):
@@ -148,7 +150,9 @@ class MyThread(threading.Thread):
         checkpoint=os.path.join(repo_dir, "ocp/prediction/gemnet_oc_base_oc20_oc22.pt")
         calc = OCPCalculator(config_yml, checkpoint, cpu=False)
                     
-        for data in tqdm(self.data_list):            
+        for data in tqdm(self.data_list): 
+            if data.rid in self.rids_list:
+                continue
             # run predictions here
             data = add_info(data, calc, debug=self.debug)
             data_list_E.append(data)
