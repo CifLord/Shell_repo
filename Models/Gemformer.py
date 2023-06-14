@@ -44,8 +44,7 @@ class Gemformer(nn.Module):
 
     def forward(self,data):
 
-        E_all= data.latent
- 
+        E_all= data.latent 
         batch = data.batch
         # print(batch)
         q=self.lin_query_MHA(E_all)
@@ -59,7 +58,7 @@ class Gemformer(nn.Module):
         # self.check_shape(E_t)
         E_t = self.layer_norm(E_t)
         # self.check_shape(E_t)
-        
+        # E_t = E_t.permute(1, 0, 2)
         E_t = scatter(
                 E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
             )  # (nMolecules, num_targets)
