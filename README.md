@@ -5,25 +5,19 @@
 
 ## Project description
 
-- The activity data generation step will update later...
-- The slab generation code task is under the `Shell_repo/ocp/slab_generation/`
+- The installation steps will update soon..
+- The work frame will discard the ocp style and will build by pytorch lightning, 
+- A more general work frame will update soon..
 
 
-## Installation-step 1
+## Installation
 
-See [installation instructions](https://github.com/Open-Catalyst-Project/ocp/blob/main/INSTALL.md).
-
-## Installation-step 2
-
-* Install specific versions of ipykernel, pymongo and mpi-client: ` pip install pymongo ipykernel mp-api `
-* Install Catkit from Github: `pip install git+https://github.com/ulissigroup/CatKit.git catkit`
-* Clone this repo and `cd ./Open-Catalyst-Dataset-OC22_dataset/ocdata/`, install with: `pip install -e ..`
-
+-See the requirements.yml
 
 
 ## Acknowledgements
 
-* This work is an extension work based on OCP dataset, machine learning model and most of the scripts.
+* This work mainly based on OCP dataset, the trainer will be build by the new pytorch version, pytorch 2.0.
 
 `ocp` is the [Open Catalyst Project](https://opencatalystproject.org/)'s
 library of state-of-the-art machine learning algorithms for catalysis.
