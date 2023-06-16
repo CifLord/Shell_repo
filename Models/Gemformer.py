@@ -27,12 +27,16 @@ class Gemformer(nn.Module):
         self.lin_value_MHA=nn.Linear(emb_size_in,emb_size_trans)
 
         self.softmax=nn.Softmax(dim=1)
+        #--------------------------------------------------need update------------------------------------------------------
+        num_layers=3
 
         self.MHA=nn.MultiheadAttention(embed_dim=emb_size_trans,
                                        num_heads=num_heads,
                                        bias=True,
                                        dropout=0.0,
                                        )
+        self.encoder_layers=nn.TransformerEncoderLayer(embed_dim=emb_size_trans,num_heads=num_heads,dropout=0.0)
+        self.transformer_encoder=nn.TransformerEncoder(self.encoder_layers,num_layers)
         self.layer_norm = nn.LayerNorm(emb_size_trans)
         
     def check_shape(self,va):
