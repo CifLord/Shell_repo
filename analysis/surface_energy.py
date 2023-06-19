@@ -14,8 +14,11 @@ from pymatgen.entries.computed_entries import ComputedEntry, ComputedStructureEn
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.analysis.phase_diagram import PhaseDiagram, PDEntry
 from pymatgen.core.periodic_table import Element
-
 from ase import Atoms
+
+from database import queryengine as q
+f = q.__file__.replace(q.__file__.split('/')[-1], '')
+pd_oc22_dict = json.load(open(os.path.join(f, 'pd_oc22_dict.json'), 'r'))
 
 
 def get_ref_entries(bulk_entry, ref_element='O', MAPIKEY=None):
@@ -53,29 +56,34 @@ def get_ref_entries(bulk_entry, ref_element='O', MAPIKEY=None):
         MAPIKEY (str): Materials Project API key for querying MP database.
     """
     
-    mprester = MPRester(MAPIKEY) if MAPIKEY else MPRester()
-    
-    # I'll start by getting all components in my chemical 
-    # system of "A-B-O" from the Materials Project. 
-    entries = mprester.get_entries_in_chemsys(bulk_entry.composition.chemical_system)
-    
-    # choose what elements to use as chemical potential reference, remember the 
-    # number of chempots is equal to n-1 where n is the number of elements in 
-    # the bulk. We will exclude the element with the largest electronegativity. 
-    # Therefore elements like O, N, C etc are always included in the chempot
     elements_todo = sorted([el for el in bulk_entry.composition.as_dict().keys()], 
                            key=lambda el: Element(el).X)
     del elements_todo[0]
-        
-    # I'll filter out any components with the same number of elements as 
-    # the bulk, I only want decomposition to other compounds, no polymorphs
-    pdentries = [PDEntry(entry.composition, entry.energy) for entry in entries \
-                 if len(bulk_entry.composition.as_dict().keys()) \
-                 != len(entry.composition.as_dict().keys())]
     
-    # With that, I can construct construct the PhaseDiagram 
-    # object and determine the decomposition
-    pd = PhaseDiagram(pdentries)
+    chemsys = bulk_entry.composition.chemical_system
+    if chemsys in pd_oc22_dict.keys():
+        pd = PhaseDiagram.from_dict(json.loads(pd_oc22_dict[chemsys]))
+    else:
+        mprester = MPRester(MAPIKEY) if MAPIKEY else MPRester()
+
+        # I'll start by getting all components in my chemical 
+        # system of "A-B-O" from the Materials Project. 
+        entries = mprester.get_entries_in_chemsys(bulk_entry.composition.chemical_system)
+
+        # choose what elements to use as chemical potential reference, remember the 
+        # number of chempots is equal to n-1 where n is the number of elements in 
+        # the bulk. We will exclude the element with the largest electronegativity. 
+        # Therefore elements like O, N, C etc are always included in the chempot    
+
+        # I'll filter out any components with the same number of elements as 
+        # the bulk, I only want decomposition to other compounds, no polymorphs
+        pdentries = [PDEntry(entry.composition, entry.energy) for entry in entries \
+                     if len(bulk_entry.composition.as_dict().keys()) \
+                     != len(entry.composition.as_dict().keys())]
+
+        # With that, I can construct the PhaseDiagram 
+        # object and determine the decomposition
+        pd = PhaseDiagram(pdentries)
     
     ref_entries = []
     # get the ref entry from the phase diagram
@@ -108,14 +116,13 @@ def get_ref_entries(bulk_entry, ref_element='O', MAPIKEY=None):
     return ref_entries
 
 
-def get_dmu(T, P, a=-7.86007886e-02, b=1.14111159e+00, c=-8.34636289e-04):
+def get_dmu_PT(T, P, a=-7.86007886e-02, b=1.14111159e+00, c=-8.34636289e-04):
     # Get Delta mu_O as a function of T and P
     k = 8.617333262145 * 10**-5 # eV/K
     g = c*T**(b)+a
     g0 = c*0**(b)+a
     # g0 shifts dmu to 0 (ie we want a reference to T=0K)
     return (1/2)*(g-g0 + k*T*np.log(P/0.1)) 
-
 
 def random_color_generator():
     rgb_indices = [0, 1, 2]
@@ -130,23 +137,24 @@ def random_color_generator():
 def get_slab_object(dat, relaxed=False):
     
     try:
-        slab = Slab.from_dict(json.loads(dat.init_pmg_slab))
+        slab = Slab(Lattice(dat.cell), dat.atomic_numbers, dat.pmg_init_slab_fcoords,
+                    dat.miller_index, None, 0, None, site_properties=dat.site_properties)
     except AttributeError:
         if hasattr(dat, 'ads_pos_relaxed'):
-            coords = dat.ads_pos_relaxed if relaxed else dat.pos 
+            coords = dat.ads_pos_relaxed if relaxed else slab.cart_coords 
         else:
-            coords = dat.pos_relaxed if relaxed else dat.pos 
+            coords = dat.pos_relaxed if relaxed else slab.cart_coords 
         return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, dat.miller_index, None, 
                     0, None, coords_are_cartesian=True)
     
     if hasattr(dat, 'ads_pos_relaxed'):
-        coords = dat.ads_pos_relaxed if relaxed else dat.pos 
+        coords = dat.ads_pos_relaxed if relaxed else slab.cart_coords 
     else:
-        coords = dat.pos_relaxed if relaxed else dat.pos 
+        coords = dat.pos_relaxed if relaxed else slab.cart_coords 
         
     site_properties = slab.site_properties
-    site_properties['selective_dynamics'] = [[True]*3 if t in [1, 2] else [False]*3 
-                                             for t in slab.site_properties['tag']]
+    # site_properties['selective_dynamics'] = [[True]*3 if t != 'subsurface' else [False]*3 
+    #                                          for t in slab.site_properties['surface_properties']]
         
     return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, slab.miller_index, 
                 slab.oriented_unit_cell, slab.shift, slab.scale_factor, 
@@ -430,3 +438,108 @@ def get_surface_pbx_facets(queryengine, criteria, T=298.15):
                 print(solve(eqn1 - eqn2, Symbol('U')))
                 
     return pbx_line_dict
+
+
+bulk_oxides_dict = json.load(open('bulk_oxides_20220621.json', 'r'))
+bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_dict}
+
+
+def get_surface_pbx_diagram(queryengine, criteria, increment=500, Ulim=[-1, 3], plot=True):
+
+    entries = list(queryengine.get_slab_entries(criteria).values())
+    ref_entries = {}
+    for entry in entries:
+        bulk_entry = ComputedStructureEntry.from_dict(bulk_oxides_dict[entry.data['mpid']])
+        if entry.data['mpid'] not in ref_entries:
+            ref_entries[entry.data['mpid']] = get_ref_entries(bulk_entry, 
+                                                               MAPIKEY=queryengine.MAPIKEY)
+        preset_slabentry_se(entry, bulk_entry, MAPIKEY=queryengine.MAPIKEY,
+                            ref_entries=ref_entries[entry.data['mpid']])
+        
+    slabentry_dict, stable_slabentry_dict = {}, {}
+    for slabentry in entries:
+        mpid = slabentry.data['mpid']
+        if mpid not in slabentry_dict.keys():
+            slabentry_dict[mpid] = {}
+            stable_slabentry_dict[mpid] = {}
+        hkl = slabentry.miller_index
+        if hkl not in slabentry_dict[mpid].keys():
+            slabentry_dict[mpid][hkl] = []
+            stable_slabentry_dict[mpid][hkl] = []
+        slabentry_dict[mpid][hkl].append(slabentry)
+    
+    muH2O = -14.231 # DFT energy per formula of H2O from MP 
+    muH2 = -6.7714828 # DFT energy per formula of H2 from MP 
+    EO = -4.946243415 # DFT energy per atom of O2 from MP
+    for mpid in slabentry_dict.keys():
+        
+        bulk_formula = queryengine.surface_properties.distinct('bulk_reduced_formula',
+                                                               {'entry_id': mpid})[0]
+
+        for hkl in slabentry_dict[mpid].keys():
+
+            pH_range = np.linspace(0, 14, increment)
+            U_range = np.linspace(Ulim[0], Ulim[1], increment)
+            # print(mpid, hkl, len(slabentry_dict[mpid][hkl]))
+            
+            stable_facet = []
+            for i, pH in enumerate(pH_range):
+                new_row = []
+                for ii, U in enumerate(U_range):
+
+                    """
+                    The surface energy of nonstoichometric oxide surface as a fucntion of pH and O 
+                    (e.g. surface grand potential) is used to determine the Pourbaix diagram. It is 
+                    given as γ = (E^* - Σnμ_i)/2A. Since we're building a Pourbaix diagram on a per 
+                    facet basis, we can just ignore 2A for now since all facets we are considering 
+                    have the same surface area. μ_i can be rewritten as the chemical potential of 
+                    oxygen only, e.g. μ_O. Here, we assume the following chemical reaction takes 
+                    place under an aqueous condition: μ_H2O(l) --> 2μ_H + μ_O. As such, 
+                    μ_O = μ_H2O(l) - 2μ_H. We assume μ_H2O(l) = E_H2O (Gibbs free energy of H2O in 
+                    a box). We then assume charge transfer when a H atom is in the reaction, e.g.:
+                    μ_H = μ_H^+ + μ_e- = 1/2G_H2 - eU + kBTlna^+ via the Nernst Equation. Ergo
+                    μ_O = G_H2O(l) - G_H2 + 2eU - 2kBTlna^+. Since we don't have G, we'll just add
+                    a correction value for converting between E and G: 
+                    μ_O = E_H2O(l) - E_H2 + 2eU - 2kBTlna^+ + ΔG_corr
+                    Lastly, we can also reference μ_O to the energy of O2 (keep it simple and 
+                    reference to 1/2E_O2 for now) which gives us Δμ_O = μ_O-1/2EO_2 or:
+                    Δμ_O = E_H2O(l) - E_H2 + 2eU - 2kBTlna^+ + ΔG_corr - 1/2E_O2
+                    As such, the surface grand potential can be written as:
+                    2Aγ(U, pH) = E^* - n(E_H2O(l) - E_H2 + 2eU - 2kBTlna^+ + ΔG_corr - 1/2E_O2) 
+                    where n determines the number of excess/defficient species relative to oxygen.
+                    """
+                    muO = muH2O - muH2 - 2*queryengine.get_e_transfer_corr(298.15, U=U, pH=pH)
+                    DG = [slabentry.preset_surface_energy.subs({'delu_O': muO-EO + queryengine.Gcorr['O']}) \
+                          if type(slabentry.preset_surface_energy).__name__ != 'float' \
+                          else slabentry.preset_surface_energy \
+                          for slabentry in slabentry_dict[mpid][hkl]]
+                    a = DG.index(min(DG))
+                    entry = slabentry_dict[mpid][hkl][a]
+                    if entry not in stable_slabentry_dict[mpid][hkl]:
+                        stable_slabentry_dict[mpid][hkl].append(entry)
+                    new_row.append(a)
+                    
+                stable_facet.append(new_row)
+                
+            if plot:
+                
+                pH_range, U_range = np.meshgrid(pH_range, U_range)
+                stable_facet = np.array(stable_facet)
+                plt.xlim([0,14])
+                plt.ylim(Ulim)
+                plt.contourf(pH_range, U_range, stable_facet, cmap='rainbow',
+                             vmin=-np.abs(stable_facet).max(),
+                             vmax=np.abs(stable_facet).max())
+
+                plt.title('%s %s %s' %(bulk_formula, mpid, tuple(hkl)))
+                plt.xlabel(r'pH', fontsize=20)
+                plt.ylabel(r'U (V)', fontsize=20)
+
+                plt.plot([0,14], [1.2,1.2], 'k--')
+                plt.plot([0,14], [2,2], 'k--')
+
+                plt.savefig('%s_%s_%s%s%s.pdf' %(bulk_formula, mpid, hkl[0],hkl[1],hkl[2]))
+                plt.show()
+                plt.close()
+
+    return stable_slabentry_dict

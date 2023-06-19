@@ -3,18 +3,20 @@ from pymatgen.db import QueryEngine
 import numpy as np
 
 from pymatgen.entries.computed_entries import ComputedEntry
-from mp_api.client import MPRester
+from pymatgen.cli.pmg_query import MPRester
 
 from pymongo import MongoClient
 from matplotlib import pylab as plt
 
 from database.generate_metadata import NpEncoder
-from analysis.surface_energy import get_slab_entry, get_dmu
+from analysis.surface_energy import *
 from analysis.surface_analysis import *
 
 kB = 1.380649 * 10**(-23)
 JtoeV = 6.242e+18
 
+bulk_oxides_dict = json.load(open('bulk_oxides_20220621.json', 'r'))
+bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_dict}
 
 class SurfaceQueryEngine(QueryEngine):
 
@@ -44,16 +46,16 @@ class SurfaceQueryEngine(QueryEngine):
             'ads_rid': 'ads-BGg3rg4gerG6', 'rid': 'adslab-reg3g53g3h4h2hj204', 
             'miller_index': (1,1,1), 'Slab': pmg_slab_as_dict, 'calc_type': 'bare_slab'}
     """
-    def __init__(self, MAPIKEY=None):
+    def __init__(self, MAPIKEY=None, collection='Shell05022023'):
 
         conn = MongoClient(host="mongodb://127.0.0.1", port=27017)
         db = conn.get_database('richardtran415')
-        surface_properties = db['Shell05022023']
+        surface_properties = db[collection]
 
         self.surface_properties = surface_properties
         self.encoder = NpEncoder()
         self.MAPIKEY = MAPIKEY
-        self.mprester = MPRester(MAPIKEY)
+        self.mprester = None # MPRester(MAPIKEY)
         self.surf_plt = None
         self.slab_entries = None
         self.rxn_diagram_xlabels = ['$2H_2O_{(l)}+*$', '$OH*$', '$O*$', '$OOH*$', '$O_{2(g)}+*$']
@@ -84,7 +86,10 @@ class SurfaceQueryEngine(QueryEngine):
         self.surface_properties.insert_one(new_dat)
         
     def find_data_objects(self, criteria):
-        return [Data.from_dict(doc) for doc in self.surface_properties.find(criteria)]
+        docs = []
+        for entry in self.surface_properties.find(criteria):
+            docs.extend(entry['slabs'].values())
+        return [Data.from_dict(doc) for doc in docs]
         
     def get_slab_entries(self, criteria, relaxed=True):
         
@@ -98,6 +103,7 @@ class SurfaceQueryEngine(QueryEngine):
                 slab_entries[dat.rid] = get_slab_entry(dat, relaxed=relaxed, 
                                                        data={'mpid': dat.entry_id})
         
+        print('getting adslab entries')
         # now get the adslab entries
         for dat in dat_list:
             if 'adslab-' in dat.rid:
@@ -145,8 +151,11 @@ class SurfaceQueryEngine(QueryEngine):
                     hkl_color_dict[hkl] = random_color_generator()
                 slabentry.color = hkl_color_dict[hkl]
 
-            bulk_entry = self.mprester.get_entry_by_material_id(entry_id, inc_structure=True, 
-                                                                conventional_unit_cell=True)[0]
+            if entry_id in bulk_oxides_dict.keys():
+                bulk_entry = ComputedStructureEntry.from_dict(bulk_oxides_dict[entry_id])
+            else:
+                bulk_entry = self.mprester.get_entry_by_material_id(entry_id, inc_structure=True, 
+                                                                    conventional_unit_cell=True)[0]
             # get the slab entries and preset their surface energies as functions of delta mu_O only
             ref_entries = get_ref_entries(bulk_entry, MAPIKEY=self.MAPIKEY)
             for slabentry in slabentries:
@@ -162,12 +171,15 @@ class SurfaceQueryEngine(QueryEngine):
         return surfplt_dict
     
     def get_e_transfer_corr(self, T=0, U=0, pH=0):
-        proton_activity = 10**(-1*pH)
-        return -1*U + kB*T * JtoeV * np.log(proton_activity)
-    
-    def get_gibbs_adsorption_energies(self, adsorbate, criteria=None, T=0, U=0, pH=0, P=0.1):
-            
-        dmuO = get_dmu(T, P)
+        return -1*U + -pH*kB*T * JtoeV * np.log(10)
+        
+    def get_gibbs_adsorption_energies(self, entries, T=298.15, U=0, pH=0):
+                    
+        muH2O = -14.231 # DFT energy per formula of H2O from MP 
+        muH2 = -6.7714828 # DFT energy per formula of H2 from MP 
+        EO = -4.946243415 # DFT energy per atom of O2 from MP
+        etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
+        dmuO = muH2O - muH2 - 2*etransfer - EO + self.Gcorr['O']
 
         if criteria == None:
             surfplt_dict = self.surf_plt
@@ -188,12 +200,13 @@ class SurfaceQueryEngine(QueryEngine):
                     if 'adslab-' in adsentry.entry_id and adsentry.clean_entry.entry_id == slab_rid:
                         if adsentry.data['adsorbate'] == adsorbate:
                             Eads.append(adsentry.gibbs_binding_energy(eads=True))
-                            
+                if not Eads:
+                    continue
                 Gads_dict[mpid][hkl] = sorted(Eads)[0] + self.Gcorr[adsorbate]
                 
         return Gads_dict
     
-    def get_rxn_energies(self, criteria=None, T=0, U=0, pH=0, P=0.1):
+    def get_rxn_energies(self, criteria=None, T=0, U=0, pH=0):
         """
         Returns a dictionary containing the individual energies at each step 
             of the reaction diagram (G1, G2, g3, G4, G5), the reaction energies
@@ -201,14 +214,20 @@ class SurfaceQueryEngine(QueryEngine):
             in a nested dictionary of mpid to hkl.
         """
         
+        etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
         G1 = 0
-        G2_dict = self.get_gibbs_adsorption_energies('OH', criteria=criteria, T=T, U=U, pH=pH, P=P)
-        G3_dict = self.get_gibbs_adsorption_energies('O', criteria=criteria, T=T, U=U, pH=pH, P=P)
-        G4_dict = self.get_gibbs_adsorption_energies('OOH', criteria=criteria, T=T, U=U, pH=pH, P=P)
-        G5 = -1*(self.ads_in_a_box['O2']/2)
+        G2_dict = self.get_gibbs_adsorption_energies('OH', criteria=criteria, T=T, U=U, pH=pH)
+        G3_dict = self.get_gibbs_adsorption_energies('O', criteria=criteria, T=T, U=U, pH=pH)
+        G4_dict = self.get_gibbs_adsorption_energies('OOH', criteria=criteria, T=T, U=U, pH=pH)
+        G5 = 4*1.23 + 4*etransfer
+        for i, d in enumerate([G2_dict, G3_dict, G4_dict]):
+            for mpid in d.keys():
+                for hkl in d[mpid].keys():
+                    d[mpid][hkl] += (i+1)*etransfer
+
         rxn_energy_dict = {'G1': G1, 'G2_dict': G2_dict, 'G3_dict': G3_dict, 'G4_dict': G4_dict, 'G5': G5} 
         
-        rxn_energy_dict.update({'DG1': {}, 'DG2': {}, 'DG3': {}, 'DG4': {}, 'overpotential': {}}) 
+        rxn_energy_dict.update({'DG1': {}, 'DG2': {}, 'DG3': {}, 'DG4': {}, 'overpotential': {}})
         for mpid in rxn_energy_dict['G2_dict'].keys():
             rxn_energy_dict['DG1'][mpid] = {}
             rxn_energy_dict['DG2'][mpid] = {}
@@ -216,6 +235,10 @@ class SurfaceQueryEngine(QueryEngine):
             rxn_energy_dict['DG4'][mpid] = {}
             rxn_energy_dict['overpotential'][mpid] = {}
             for hkl in rxn_energy_dict['G2_dict'][mpid].keys():
+                if hkl not in G2_dict[mpid].keys() or \
+                hkl not in G3_dict[mpid].keys() or \
+                hkl not in G4_dict[mpid].keys():
+                    continue
                 DG1 = G2_dict[mpid][hkl] - G1
                 DG2 = G3_dict[mpid][hkl] - G2_dict[mpid][hkl]
                 DG3 = G4_dict[mpid][hkl] - G3_dict[mpid][hkl]
@@ -228,11 +251,11 @@ class SurfaceQueryEngine(QueryEngine):
         
         return rxn_energy_dict
         
-    def build_rxn_diagram(self, criteria=None, T=0, U=0, pH=0, P=0.1):
+    def build_rxn_diagram(self, criteria=None, T=0, U=0, pH=0):
         
         from matplotlib import pylab as rxn_plt
         
-        rxn_energy_dict = self.get_rxn_energies(criteria=criteria, T=T, U=U, pH=pH, P=P)
+        rxn_energy_dict = self.get_rxn_energies(criteria=criteria, T=T, U=U, pH=pH)
         G1, G2_dict, G3_dict, G4_dict, G5, DG1, DG2, DG3, DG4, overpotential = rxn_energy_dict.values()
         
         rxn_diagram_dict = {}
@@ -257,21 +280,21 @@ class SurfaceQueryEngine(QueryEngine):
                                 
         return rxn_diagram_dict
     
-    @property
-    def ideal_rxn_diagram(self):
+    def ideal_rxn_diagram(self, T=0, U=0, pH=0):
         
         from matplotlib import pylab as ideal_plt
         
         plots = []
-        G1 = 0
-        G5 = -1*(self.ads_in_a_box['O2']/2)
-        plots.append(ideal_plt.plot([0, 1], [G1, G1], 'k-', label='Ideal'))
-        plots.append(ideal_plt.plot([1, 1], [G1, G5/4], 'k-', label='Ideal'))
-        plots.append(ideal_plt.plot([1, 2], [G5/4, G5/4], 'k-', label='Ideal'))
-        plots.append(ideal_plt.plot([2, 2], [G5/4, G5/2], 'k-', label='Ideal'))
-        plots.append(ideal_plt.plot([2, 3], [G5/2, G5/2], 'k-', label='Ideal'))
-        plots.append(ideal_plt.plot([3, 3], [G5/2, G5*(3/4)], 'k-', label='Ideal'))
-        plots.append(ideal_plt.plot([3, 4], [G5*(3/4), G5*(3/4)], 'k-', label='Ideal'))
-        plots.append(ideal_plt.plot([4, 4], [G5*(3/4), G5], 'k-', label='Ideal'))
-        plots.append(ideal_plt.plot([4, 5], [G5, G5], 'k-', label='Ideal'))
+        etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
+        G0 = 0
+        G4 = 4*1.23
+        plots.append(ideal_plt.plot([0, 1], [G0, G0], 'k--'))
+        plots.append(ideal_plt.plot([1, 1], [G0, G4/4 + etransfer], 'k--'))
+        plots.append(ideal_plt.plot([1, 2], [G4/4+etransfer, G4/4+etransfer], 'k--'))
+        plots.append(ideal_plt.plot([2, 2], [G4/4+etransfer, G4/2+2*etransfer], 'k--'))
+        plots.append(ideal_plt.plot([2, 3], [G4/2+2*etransfer, G4/2+2*etransfer], 'k--'))
+        plots.append(ideal_plt.plot([3, 3], [G4/2+2*etransfer, G4*(3/4)+3*etransfer], 'k--'))
+        plots.append(ideal_plt.plot([3, 4], [G4*(3/4)+3*etransfer, G4*(3/4)+3*etransfer], 'k--'))
+        plots.append(ideal_plt.plot([4, 4], [G4*(3/4)+3*etransfer, G4+4*etransfer], 'k--'))
+        plots.append(ideal_plt.plot([4, 5], [G4+4*etransfer, G4+4*etransfer], 'k--', label='Ideal'))
         return plots
