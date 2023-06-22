@@ -444,9 +444,11 @@ bulk_oxides_dict = json.load(open('bulk_oxides_20220621.json', 'r'))
 bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_dict}
 
 
-def get_surface_pbx_diagram(queryengine, criteria, increment=500, Ulim=[-1, 3], plot=True):
+def get_surface_pbx_diagram(queryengine, criteria, increment=500, Ulim=[-1, 3], plot=True, bare_only=True):
 
     entries = list(queryengine.get_slab_entries(criteria).values())
+    if bare_only:
+        entries = [entry for entry in entries if 'adslab-' not in entry.entry_id]
     ref_entries = {}
     for entry in entries:
         bulk_entry = ComputedStructureEntry.from_dict(bulk_oxides_dict[entry.data['mpid']])
