@@ -91,10 +91,10 @@ class SurfaceQueryEngine(QueryEngine):
             docs.extend(entry['slabs'].values())
         return [Data.from_dict(doc) for doc in docs]
         
-    def get_slab_entries(self, criteria, relaxed=True):
+    def get_slab_entries(self, criteria, dat_list=None, relaxed=True):
         
         clean_dict, adslab_dict = {}, {}
-        dat_list = self.find_data_objects(criteria)
+        dat_list = dat_list if dat_list else self.find_data_objects(criteria)
         
         slab_entries = {}
         # get the clean slabs first to build the adslabs
@@ -103,7 +103,6 @@ class SurfaceQueryEngine(QueryEngine):
                 slab_entries[dat.rid] = get_slab_entry(dat, relaxed=relaxed, 
                                                        data={'mpid': dat.entry_id})
         
-        print('getting adslab entries')
         # now get the adslab entries
         for dat in dat_list:
             if 'adslab-' in dat.rid:
@@ -126,9 +125,12 @@ class SurfaceQueryEngine(QueryEngine):
         self.slab_entries = slab_entries
         return slab_entries
         
-    def get_surfe_plotter(self, criteria=None, relaxed=True):
+    def get_surfe_plotter(self, criteria=None, dat_list=None, relaxed=True):
         
-        if criteria == None:
+        if dat_list:
+            slab_entries_dict = self.get_slab_entries(criteria, dat_list=dat_list,
+                                                      relaxed=relaxed)
+        elif criteria == None:
             slab_entries_dict = self.slab_entries_dict
         else:
             slab_entries_dict = self.get_slab_entries(criteria, relaxed=relaxed)
@@ -173,7 +175,7 @@ class SurfaceQueryEngine(QueryEngine):
     def get_e_transfer_corr(self, T=0, U=0, pH=0):
         return -1*U + -pH*kB*T * JtoeV * np.log(10)
         
-    def get_gibbs_adsorption_energies(self, entries, T=298.15, U=0, pH=0):
+    def get_gibbs_adsorption_energies(self, adsorbate, criteria=None, surfplt_dict=None, T=298.15, U=0, pH=0):
                     
         muH2O = -14.231 # DFT energy per formula of H2O from MP 
         muH2 = -6.7714828 # DFT energy per formula of H2 from MP 
@@ -181,10 +183,12 @@ class SurfaceQueryEngine(QueryEngine):
         etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
         dmuO = muH2O - muH2 - 2*etransfer - EO + self.Gcorr['O']
 
-        if criteria == None:
-            surfplt_dict = self.surf_plt
-        else:
+        if surfplt_dict:
+            surfplt_dict = surfplt_dict
+        elif criteria:
             surfplt_dict = self.get_surfe_plotter(criteria, relaxed=False)
+        elif criteria == None and surfplt_dict==None:
+            surfplt_dict = self.surf_plt
         
         Gads_dict = {}
         for mpid in surfplt_dict.keys():
@@ -206,7 +210,7 @@ class SurfaceQueryEngine(QueryEngine):
                 
         return Gads_dict
     
-    def get_rxn_energies(self, criteria=None, T=0, U=0, pH=0):
+    def get_rxn_energies(self, criteria=None, dat_list=None, T=0, U=0, pH=0):
         """
         Returns a dictionary containing the individual energies at each step 
             of the reaction diagram (G1, G2, g3, G4, G5), the reaction energies
@@ -216,9 +220,11 @@ class SurfaceQueryEngine(QueryEngine):
         
         etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
         G1 = 0
-        G2_dict = self.get_gibbs_adsorption_energies('OH', criteria=criteria, T=T, U=U, pH=pH)
-        G3_dict = self.get_gibbs_adsorption_energies('O', criteria=criteria, T=T, U=U, pH=pH)
-        G4_dict = self.get_gibbs_adsorption_energies('OOH', criteria=criteria, T=T, U=U, pH=pH)
+        dat_list = dat_list if dat_list else queryengine_c.find_data_objects(criteria)
+        surfe_dict = queryengine_c.get_surfe_plotter(dat_list=dat_list)
+        G2_dict = self.get_gibbs_adsorption_energies('OH', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
+        G3_dict = self.get_gibbs_adsorption_energies('O', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
+        G4_dict = self.get_gibbs_adsorption_energies('OOH', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
         G5 = 4*1.23 + 4*etransfer
         for i, d in enumerate([G2_dict, G3_dict, G4_dict]):
             for mpid in d.keys():
