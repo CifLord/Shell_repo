@@ -220,8 +220,8 @@ class SurfaceQueryEngine(QueryEngine):
         
         etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
         G1 = 0
-        dat_list = dat_list if dat_list else queryengine_c.find_data_objects(criteria)
-        surfe_dict = queryengine_c.get_surfe_plotter(dat_list=dat_list)
+        dat_list = dat_list if dat_list else self.find_data_objects(criteria)
+        surfe_dict = self.get_surfe_plotter(dat_list=dat_list)
         G2_dict = self.get_gibbs_adsorption_energies('OH', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
         G3_dict = self.get_gibbs_adsorption_energies('O', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
         G4_dict = self.get_gibbs_adsorption_energies('OOH', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
