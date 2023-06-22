@@ -174,6 +174,59 @@ class SurfaceQueryEngine(QueryEngine):
     
     def get_e_transfer_corr(self, T=0, U=0, pH=0):
         return -1*U + -pH*kB*T * JtoeV * np.log(10)
+    
+    def get_G0_OER(self):
+        # * + 2H2O(l) --> * + 2H2O(l)
+        return 0
+    
+    def get_G1_OER(self, adsentry, T=0, U=0, pH=0):
+        # * + 2H2O(l) --> OH* + e- + H+ + H2O(l)
+        
+        EH2O = self.ads_in_a_box['H2O']
+        EH2 = self.ads_in_a_box['H2']
+        etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
+        
+        EOHstar = adsentry.energy
+        Estar = adsentry.clean_entry.energy
+        E0step = Estar + 2*EH2O
+        E1step = EOHstar + ((1/2)*EH2+etransfer) + EH2O                    
+        return E1step - E0step + self.Gcorr['OH']
+    
+    def get_G2_OER(self, adsentry, T=0, U=0, pH=0):
+        # * + 2H2O(l) --> O* + 2e- + 2H+ + H2O(l)
+        
+        EH2O = self.ads_in_a_box['H2O']
+        EH2 = self.ads_in_a_box['H2']
+        etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
+        
+        
+        EOstar = adsentry.energy
+        Estar = adsentry.clean_entry.energy
+        E0step = Estar + 2*EH2O
+        E2step = EOstar + 2*((1/2)*EH2+etransfer) + EH2O
+        return E2step - E0step + self.Gcorr['O']
+    
+    def get_G3_OER(self, adsentry, T=0, U=0, pH=0):
+        # * + 2H2O(l) --> OOH* 3e- + 3H+
+        
+        EH2O = self.ads_in_a_box['H2O']
+        EH2 = self.ads_in_a_box['H2']
+        etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
+
+        EOOHstar = adsentry.energy
+        Estar = adsentry.clean_entry.energy
+        E0step = Estar + 2*EH2O
+        E3step = EOOHstar + 3*((1/2)*EH2+etransfer)
+        return E3step - E0step + self.Gcorr['OOH']
+
+    def get_G4_OER(self, T=0, U=0, pH=0):
+        # * + 2H2O(l) --> * + O2(g) + 2H2(g)
+        
+        etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)        
+        GH2O = -12.457
+        GH2 = -7.194
+        GO2 = 1.23*4 + 2*GH2O - GH2*2
+        return 4*((1/2)*GH2+etransfer) + GO2 - 2*GH2O
         
     def get_gibbs_adsorption_energies(self, adsorbate, criteria=None, surfplt_dict=None, T=298.15, U=0, pH=0):
                     
@@ -203,7 +256,12 @@ class SurfaceQueryEngine(QueryEngine):
                 for adsentry in self.slab_entries.values():
                     if 'adslab-' in adsentry.entry_id and adsentry.clean_entry.entry_id == slab_rid:
                         if adsentry.data['adsorbate'] == adsorbate:
-                            Eads.append(adsentry.gibbs_binding_energy(eads=True))
+                            if adsorbate == 'OH':
+                                Eads.append(self.get_G1_OER(adsentry, T=T, U=T, pH=T))
+                            elif adsorbate == 'O':
+                                Eads.append(self.get_G2_OER(adsentry, T=T, U=T, pH=T))
+                            elif adsorbate == 'OOH':
+                                Eads.append(self.get_G3_OER(adsentry, T=T, U=T, pH=T))
                 if not Eads:
                     continue
                 Gads_dict[mpid][hkl] = sorted(Eads)[0] + self.Gcorr[adsorbate]
@@ -304,3 +362,30 @@ class SurfaceQueryEngine(QueryEngine):
         plots.append(ideal_plt.plot([4, 4], [G4*(3/4)+3*etransfer, G4+4*etransfer], 'k--'))
         plots.append(ideal_plt.plot([4, 5], [G4+4*etransfer, G4+4*etransfer], 'k--', label='Ideal'))
         return plots
+    
+    def get_equation(self, slabentry, adsorbate=None, surface_energy=False):
+
+        if surface_energy:
+            muH2O = -14.231 # DFT energy per formula of H2O from MP 
+            muH2 = -6.7714828 # DFT energy per formula of H2 from MP 
+            EO = -4.946243415 # DFT energy per atom of O2 from MP
+            muO = muH2O - muH2 - 2*self.get_e_transfer_corr(Symbol('T'), U=Symbol('U'), pH=Symbol('pH'))
+
+            mpid = slabentry.data['mpid']
+            bulk_entry = ComputedStructureEntry.from_dict(bulk_oxides_dict[mpid])
+            ref_entries = get_ref_entries(bulk_entry)
+            preset_slabentry_se(slabentry, bulk_entry, ref_entries=ref_entries)
+            e = slabentry.preset_surface_energy.subs({'delu_O': muO-EO + self.Gcorr['O']})
+
+        else: # calculate Gibbs adsorption energy instead
+            if adsorbate == 'OH':
+                e = self.get_G1_OER(slabentry, Symbol('T'), U=Symbol('U'), pH=Symbol('pH'))
+            elif adsorbate == 'O':
+                e = self.get_G2_OER(slabentry, Symbol('T'), U=Symbol('U'), pH=Symbol('pH'))
+            elif adsorbate == 'OOH':
+                e = self.get_G3_OER(slabentry, Symbol('T'), U=Symbol('U'), pH=Symbol('pH'))
+                
+        d = e.as_coefficients_dict()
+        d = {str(k): d[k] for k in d.keys()}
+
+        return d
