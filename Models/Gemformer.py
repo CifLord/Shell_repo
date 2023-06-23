@@ -33,10 +33,10 @@ class Gemformer(nn.Module):
         self.MHA=nn.MultiheadAttention(embed_dim=emb_size_trans,
                                        num_heads=num_heads,
                                        bias=True,
-                                       dropout=0.0,
+                                       dropout=0.3,
                                        )
-        self.encoder_layers=nn.TransformerEncoderLayer(embed_dim=emb_size_trans,num_heads=num_heads,dropout=0.0)
-        self.transformer_encoder=nn.TransformerEncoder(self.encoder_layers,num_layers)
+        # self.encoder_layers=nn.TransformerEncoderLayer(embed_dim=emb_size_trans,num_heads=num_heads,dropout=0.3)
+        # self.transformer_encoder=nn.TransformerEncoder(self.encoder_layers,num_layers)
         self.layer_norm = nn.LayerNorm(emb_size_trans)
         
     def check_shape(self,va):
@@ -46,16 +46,15 @@ class Gemformer(nn.Module):
         print(f'The {va.__class__.__name__} mean and std of is:',va.mean(),va.std())
         
 
-    def forward(self,data):
+    def forward(self,x):
 
-        E_all= data.latent 
-        batch = data.batch
+        E_all= x
         # print(batch)
         q=self.lin_query_MHA(E_all)
         k=self.lin_key_MHA(E_all)
         v=self.lin_value_MHA(E_all)
 
-        nMolecules = torch.max(batch) + 1
+        # nMolecules = torch.max(batch) + 1
         E_t,w=self.MHA(q,k,v)
         # self.check_shape(E_t)
         E_t=torch.sum(E_t,dim=0)
@@ -63,9 +62,11 @@ class Gemformer(nn.Module):
         E_t = self.layer_norm(E_t)
         # self.check_shape(E_t)
         # E_t = E_t.permute(1, 0, 2)
-        E_t = scatter(
-                E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
-            )  # (nMolecules, num_targets)
+        # E_t = scatter(
+        #         E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
+        #     )  # (nMolecules, num_targets)
+        #------------------------------------------------------------------------
+        E_t= 1
         # self.check_shape(E_t)
         
         E_t=self.dense(E_t)
