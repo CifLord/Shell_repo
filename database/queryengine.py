@@ -46,7 +46,7 @@ class SurfaceQueryEngine(QueryEngine):
             'ads_rid': 'ads-BGg3rg4gerG6', 'rid': 'adslab-reg3g53g3h4h2hj204', 
             'miller_index': (1,1,1), 'Slab': pmg_slab_as_dict, 'calc_type': 'bare_slab'}
     """
-    def __init__(self, MAPIKEY=None, collection='Shell05022023'):
+    def __init__(self, MAPIKEY=None, collection='Shell05022023_c'):
 
         conn = MongoClient(host="mongodb://127.0.0.1", port=27017)
         db = conn.get_database('richardtran415')
@@ -375,7 +375,11 @@ class SurfaceQueryEngine(QueryEngine):
             bulk_entry = ComputedStructureEntry.from_dict(bulk_oxides_dict[mpid])
             ref_entries = get_ref_entries(bulk_entry)
             preset_slabentry_se(slabentry, bulk_entry, ref_entries=ref_entries)
-            e = slabentry.preset_surface_energy.subs({'delu_O': muO-EO + self.Gcorr['O']})
+            if type(slabentry.preset_surface_energy).__name__ == 'float':
+                e = slabentry.preset_surface_energy
+                return e
+            else:
+                e = slabentry.preset_surface_energy.subs({'delu_O': muO-EO + self.Gcorr['O']})
 
         else: # calculate Gibbs adsorption energy instead
             if adsorbate == 'OH':
@@ -385,7 +389,8 @@ class SurfaceQueryEngine(QueryEngine):
             elif adsorbate == 'OOH':
                 e = self.get_G3_OER(slabentry, Symbol('T'), U=Symbol('U'), pH=Symbol('pH'))
                 
+        
         d = e.as_coefficients_dict()
-        d = {str(k): d[k] for k in d.keys()}
+        d = {str(k): float(d[k]) for k in d.keys()}
 
         return d

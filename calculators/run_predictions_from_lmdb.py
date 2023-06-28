@@ -39,6 +39,8 @@ if __name__=="__main__":
         lmdb_list = json.load(f)
     
         for n in lmdb_list:
+            if not os.path.isfile(n):
+                continue
             input_lmdb = LmdbDataset({'src': n})
             output_lmdb = n.rstrip('.lmdb')+'_ads.lmdb'
             # equally distribute dataset to multiple threads
