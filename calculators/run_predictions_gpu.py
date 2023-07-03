@@ -1,5 +1,5 @@
 import sys, random, os, json, threading, lmdb, pickle, torch, argparse, time
-import vaspjob
+from calculators import vaspjob
 f = vaspjob.__file__
 repo_dir = f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), '')
 sys.path.append(repo_dir)

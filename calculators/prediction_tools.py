@@ -1,10 +1,10 @@
 import torch, os, threading
 from tqdm import tqdm
 import sys
-import vaspjob
-f = vaspjob.__file__
-repo_dir = f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), '')
-sys.path.append(repo_dir)
+from calculators import vaspjob
+# f = vaspjob.__file__
+# repo_dir = f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), '')
+# sys.path.append(repo_dir)
 from ocpmodels.datasets import LmdbDataset
 
 from ase.constraints import FixAtoms
