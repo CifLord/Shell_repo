@@ -108,6 +108,7 @@ class SurfaceQueryEngine(QueryEngine):
             if 'adslab-' in dat.rid:
                 
                 if dat.slab_rid not in slab_entries.keys():
+                    print('qeurying')
                     doc = self.surface_properties.find_one({'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
                     if not doc:
                         continue
