@@ -140,8 +140,10 @@ class MyThread(threading.Thread):
         self.pathname = pathname
         self.gpus=gpus
         self.debug = debug
-        self.rids_list = [dat.rid for dat in LmdbDataset({'src': pathname})]
-        
+        if os.path.isfile(pathname):
+            self.rids_list = [dat.rid for dat in LmdbDataset({'src': pathname})]
+        else:
+            self.rids_list = []
     
     def run(self):
     

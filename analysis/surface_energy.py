@@ -440,7 +440,7 @@ def get_surface_pbx_facets(queryengine, criteria, T=298.15):
     return pbx_line_dict
 
 
-bulk_oxides_dict = json.load(open('bulk_oxides_20220621.json', 'r'))
+bulk_oxides_dict = json.load(open(os.path.join(f, 'bulk_oxides_20220621.json'), 'r'))
 bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_dict}
 
 

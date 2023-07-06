@@ -15,7 +15,8 @@ from analysis.surface_analysis import *
 kB = 1.380649 * 10**(-23)
 JtoeV = 6.242e+18
 
-bulk_oxides_dict = json.load(open('bulk_oxides_20220621.json', 'r'))
+from database import generate_metadata as q
+bulk_oxides_dict = json.load(open(os.path.join(q.__file__.replace(q.__file__.split('/')[-1], ''), 'bulk_oxides_20220621.json'), 'r'))
 bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_dict}
 
 class SurfaceQueryEngine(QueryEngine):
@@ -108,8 +109,8 @@ class SurfaceQueryEngine(QueryEngine):
             if 'adslab-' in dat.rid:
                 
                 if dat.slab_rid not in slab_entries.keys():
-                    print('qeurying')
-                    doc = self.surface_properties.find_one({'mpid': dat.entry_id, 'adsorbate': dat.adsorbate})
+                    doc = self.surface_properties.find_one({'mpid': dat.entry_id, 
+                                                            'adsorbate': dat.adsorbate})
                     if not doc:
                         continue
                     clean_dat = Data.from_dict(doc)
