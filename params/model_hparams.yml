@@ -1,3 +1,4 @@
-emb_size_in: 256
-emb_size_trans: 64
-num_heads: 1
+bond_feat_dim: 0
+num_atoms: 0
+num_heads: 4
+num_targets: 0

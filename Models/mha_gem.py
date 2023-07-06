@@ -3,11 +3,10 @@ import math as m
 import torch.nn.functional as F
 import torch
 
-class MultiHeadAttention(nn.Module):
+class GemMultiHeadAttention(nn.Module):
     def __init__(self,d_model,num_heads,dropout=0.1):
         super().__init__()
         self.d=d_model//num_heads
-
         self.d_model=d_model
         self.num_heads=num_heads
         self.dropout=nn.Dropout(dropout)

@@ -10,7 +10,7 @@ class EncoderLayer(nn.Module):
         self.norm1=ResidualLayerNorm(d_model,dropout)
         self.norm2=ResidualLayerNorm(d_model,dropout)
 
-        self.mha=MultiHeadAttention(d_model,d_ff,dropout)
+        self.mha=MultiHeadAttention(d_model,num_heads,dropout)
 
         self.ff=PWFFN(d_model,d_ff,dropout)
 
