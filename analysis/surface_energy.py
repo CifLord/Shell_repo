@@ -136,31 +136,22 @@ def random_color_generator():
 
 def get_slab_object(dat, relaxed=False):
     
-    try:
-        slab = Slab(Lattice(dat.cell), dat.atomic_numbers, dat.pmg_init_slab_fcoords,
-                    dat.miller_index, None, 0, None, site_properties=dat.site_properties)
-    except AttributeError:
-        if hasattr(dat, 'ads_pos_relaxed'):
-            coords = dat.ads_pos_relaxed if relaxed else slab.cart_coords 
-        else:
-            coords = dat.pos_relaxed if relaxed else slab.cart_coords 
-        return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, dat.miller_index, None, 
-                    0, None, coords_are_cartesian=True)
+    slab = Slab(Lattice(dat.cell), dat.atomic_numbers, dat.pmg_init_slab_fcoords,
+                dat.miller_index, None, 0, None, site_properties=dat.site_properties)
     
-    if hasattr(dat, 'ads_pos_relaxed'):
-        coords = dat.ads_pos_relaxed if relaxed else slab.cart_coords 
+    if relaxed:
+        if hasattr(dat, 'ads_pos_relaxed'):
+            coords = dat.ads_pos_relaxed 
+        else:
+            coords = dat.pos_relaxed
+        return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, slab.miller_index, 
+                    slab.oriented_unit_cell, slab.shift, slab.scale_factor, 
+                    coords_are_cartesian=True, site_properties=dat.site_properties)
     else:
-        coords = dat.pos_relaxed if relaxed else slab.cart_coords 
-        
-    site_properties = slab.site_properties
-    # site_properties['selective_dynamics'] = [[True]*3 if t != 'subsurface' else [False]*3 
-    #                                          for t in slab.site_properties['surface_properties']]
-        
-    return Slab(Lattice(dat.cell), dat.atomic_numbers, coords, slab.miller_index, 
-                slab.oriented_unit_cell, slab.shift, slab.scale_factor, 
-                coords_are_cartesian=True, site_properties=site_properties)
+        return slab
 
-def get_slab_entry(dat, color=None, relaxed=False, clean_slab_entry=None, ads_entries=None, data={}):
+def get_slab_entry(dat, color=None, relaxed=False, 
+                   clean_slab_entry=None, ads_entries=None, data={}):
     
     slab = get_slab_object(dat, relaxed=relaxed)
     e = dat.y if 'adslab-' not in dat.rid else dat.y
