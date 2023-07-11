@@ -105,9 +105,7 @@ def cal_slab_energy(data, calc, traj_output=False, debug=False):
         forces = [[0]*3]*len(testobj)
         pos_relaxed = [[0]*3]*len(testobj)
     else:
-        opt.run(fmax=0.05, steps=100)
-        del testobj.constraints[1:]
-        opt.run(fmax=0.05, steps=30)
+        opt.run(fmax=0.05, steps=350)
         relax_slab_energy = testobj.get_potential_energy()
         forces=testobj.get_forces()
         pos_relaxed=testobj.get_positions()
