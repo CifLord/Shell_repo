@@ -162,3 +162,44 @@ class MyThread(threading.Thread):
                 data_list_E = []
 
         generate_lmdb(data_list_E, self.pathname)
+
+import threading
+from ase.io.trajectory import Trajectory
+from ase.optimize import BFGS
+import os
+import numpy as np
+from pathlib import Path
+import json
+
+class CalculationThread(threading.Thread):
+    def __init__(self, calc, traj_in, traj_out_path):
+        threading.Thread.__init__(self)
+        self.calc = calc
+        self.traj_in = traj_in
+        self.traj_out_path = traj_out_path
+
+    def run(self):
+        unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300 = self.cal_from_s100(self.calc, self.traj_in, self.traj_out_path)
+        continue_calc = {}
+        continue_calc[round(unrelax_slab_energy,2)] = {}
+        continue_calc[round(unrelax_slab_energy,2)]['max_forces'] = max_forces
+        continue_calc[round(unrelax_slab_energy,2)]['relaxed_energy'] = relaxed_energy
+        continue_calc[round(unrelax_slab_energy,2)]['pos_relaxed_300'] = pos_relaxed_300
+        with open(f"{self.traj_in.stem}.json", "w") as outfile:
+            json.dump(continue_calc, outfile)
+
+    def cal_from_s100(self, calc, traj_in, traj_out_path):
+        '''calculate the energy from traj file that only optimize 100 steps'''
+        traj = Trajectory(traj_in)
+        atoms = traj[-1]
+        atoms.calc = calc
+        os.makedirs(traj_out_path,exist_ok=True)    
+        dyn = BFGS(atoms=atoms, trajectory=traj_out_path)
+        dyn.replay_trajectory(traj_in)
+        unrelax_slab_energy=atoms.get_potential_energy()
+        dyn.run(fmax=0.05, steps=300)
+        relaxed_energy=atoms.get_potential_energy()
+        max_forces=np.max(atoms.get_forces())
+        pos_relaxed_300=atoms.get_positions()
+
+        return unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300
