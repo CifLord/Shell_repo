@@ -94,8 +94,8 @@ def cal_slab_energy(data, calc, traj_output=False, debug=False):
 
     if traj_output == True:
         os.makedirs("./trajs", exist_ok=True)
-        files=len(os.listdir('./trajs/'))
-        opt = BFGS(testobj, trajectory=f"./trajs/data.slab_formula+{files}"+".traj")
+        # files=len(os.listdir('./trajs/'))
+        opt = BFGS(testobj, trajectory=f"./trajs/{data.rid}"+".traj")
     
     else:
         opt = BFGS(testobj)
