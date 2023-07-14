@@ -177,29 +177,43 @@ class CalculationThread(threading.Thread):
         self.calc = calc
         self.traj_in = traj_in
         self.traj_out_path = traj_out_path
+        os.makedirs("./prediction/continue_result",exist_ok=True)
+        
 
     def run(self):
-        unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300 = self.cal_from_s100(self.calc, self.traj_in, self.traj_out_path)
-        continue_calc = {}
-        continue_calc[round(unrelax_slab_energy,2)] = {}
-        continue_calc[round(unrelax_slab_energy,2)]['max_forces'] = max_forces
-        continue_calc[round(unrelax_slab_energy,2)]['relaxed_energy'] = relaxed_energy
-        continue_calc[round(unrelax_slab_energy,2)]['pos_relaxed_300'] = pos_relaxed_300
-        with open(f"{self.traj_in.stem}.json", "w") as outfile:
-            json.dump(continue_calc, outfile)
+        for data in tqdm(self.traj_in):
+            
+            unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300 = self.cal_from_s100(self.calc,data, self.traj_out_path)
+            if unrelax_slab_energy is not None:
+                continue_calc = {}
+                continue_calc[data] = {}
+                continue_calc[data]['unrelaxed_energy']=str(unrelax_slab_energy)
+                continue_calc[data]['max_forces'] =str(max_forces)
+                continue_calc[data]['relaxed_energy'] = str(relaxed_energy)
+                continue_calc[data]['pos_relaxed_300'] = pos_relaxed_300.tolist()
+                with open(f"./prediction/continue_result/{data.rstrip('.traj')}.json", "w") as outfile:
+                    json.dump(continue_calc, outfile)
+            else:
+                continue
+            
 
-    def cal_from_s100(self, calc, traj_in, traj_out_path):
+    def cal_from_s100(self, calc, data, traj_out_path):
         '''calculate the energy from traj file that only optimize 100 steps'''
-        traj = Trajectory(traj_in)
-        atoms = traj[-1]
-        atoms.calc = calc
-        os.makedirs(traj_out_path,exist_ok=True)    
-        dyn = BFGS(atoms=atoms, trajectory=traj_out_path)
-        dyn.replay_trajectory(traj_in)
-        unrelax_slab_energy=atoms.get_potential_energy()
-        dyn.run(fmax=0.05, steps=300)
-        relaxed_energy=atoms.get_potential_energy()
-        max_forces=np.max(atoms.get_forces())
-        pos_relaxed_300=atoms.get_positions()
+        try:
+            traj = Trajectory(f'./trajs/{data}')
+            atoms = traj[-1]
+            atoms.calc = calc
+          
+            dyn = BFGS(atoms=atoms, trajectory=traj_out_path+f'{data}.traj')
+            dyn.replay_trajectory(f'./trajs/{data}')
+        
+            unrelax_slab_energy=atoms.get_potential_energy()
+            dyn.run(fmax=0.05, steps=300)
+            relaxed_energy=atoms.get_potential_energy()
+            max_forces=np.max(atoms.get_forces())
+            pos_relaxed_300=atoms.get_positions()
+            return unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300
+        except:
+            return None,None,None,None
 
-        return unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300
+        
