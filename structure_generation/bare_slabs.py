@@ -208,7 +208,7 @@ def slab_generator(entry_id, mmi, slab_size, vacuum_size, tol=0.1, MAPIKEY=None,
     if entry_id not in bulk_oxides_dict.keys():
         mprester = MPRester(MAPIKEY) if MAPIKEY else MPRester()
         bulk_entry = mprester.get_entry_by_material_id(entry_id, inc_structure=True,
-                                                       conventional_unit_cell=True)
+                                                       conventional_unit_cell=True)[0]
     else:
         bulk_entry = bulk_oxides_dict[entry_id]
     
