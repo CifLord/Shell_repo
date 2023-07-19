@@ -16,13 +16,12 @@ class Egformer(nn.Module):
         return label
 
     def forward(self,data):
-        pred_output = self.arc(data)
-        
+        pred_output = self.arc(data)        
         masks=self.norm_label(data)
         loss = self.mask_loss(pred_output.view(-1, 1), masks.view(-1, 1))
         acc=sum(abs(pred_output.view(-1, 1)-masks.view(-1, 1)))
 
         if masks !=None:            
             return loss,acc
-
-        return loss,acc
+        else:
+            return pred_output
