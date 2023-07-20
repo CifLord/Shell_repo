@@ -191,7 +191,8 @@ class CalculationThread(threading.Thread):
                 continue_calc[data]['max_forces'] =str(max_forces)
                 continue_calc[data]['relaxed_energy'] = str(relaxed_energy)
                 continue_calc[data]['pos_relaxed_300'] = pos_relaxed_300.tolist()
-                with open(f"./prediction/continue_result/{data.rstrip('.traj')}.json", "w") as outfile:
+                data_name=data.split('+')[-1].replace('.traj','')
+                with open(f"./prediction/continue_result/{data_name}.json", "w") as outfile:
                     json.dump(continue_calc, outfile)
             else:
                 continue
@@ -200,12 +201,12 @@ class CalculationThread(threading.Thread):
     def cal_from_s100(self, calc, data, traj_out_path):
         '''calculate the energy from traj file that only optimize 100 steps'''
         try:
-            traj = Trajectory(f'./trajs/{data}')
+            traj = Trajectory(data)
             atoms = traj[-1]
             atoms.calc = calc
-          
-            dyn = BFGS(atoms=atoms, trajectory=traj_out_path+f'{data}.traj')
-            dyn.replay_trajectory(f'./trajs/{data}')
+            save_name=data.split('+')[-1] 
+            dyn = BFGS(atoms=atoms, trajectory=traj_out_path+f'{save_name}')
+            dyn.replay_trajectory(data)
         
             unrelax_slab_energy=atoms.get_potential_energy()
             dyn.run(fmax=0.05, steps=300)
