@@ -3,25 +3,65 @@ import torch.nn as nn
 from Models.EGformer import EGformer
 
 
-class Egformer(nn.Module):
+def config_model():
+    with open('../params/model_hparams.yml', 'r') as file:
+        loaded_model_hparams = yaml.load(file, Loader=yaml.FullLoader)
 
-    def __init__(self,**loaded_model_hparams):
-        super(Egformer,self).__init__()
-        self.arc=EGformer(**loaded_model_hparams)        
-        self.mask_loss = nn.MSELoss()
-    def norm_label(self,data,y_mean=-7,y_std=6):
+    # Create the model using the loaded hyperparameters
+    model = EGformer(**loaded_model_hparams)
+    checkpoint_path='../params/gemnet_oc_base_oc20_oc22.pt'
+    pretrained_state_dict = torch.load(checkpoint_path)['state_dict']
+    new_model_state_dict = model.state_dict()
+    filtered_pretrained_state_dict = {k.strip('module.module.'): v for k, v in pretrained_state_dict.items() if k.strip('module.module.') in new_model_state_dict}
+    new_model_state_dict.update(filtered_pretrained_state_dict)
+    model.load_state_dict(new_model_state_dict)
+    for param_name, param in model.named_parameters():
 
-        label=data.y/data.natoms
-        label=(label-y_mean)/y_std
-        return label
+        if param_name in filtered_pretrained_state_dict.keys():
+            
+            param.requires_grad = False
+            
+    return model
 
-    def forward(self,data):
-        pred_output = self.arc(data)        
-        masks=self.norm_label(data)
-        loss = self.mask_loss(pred_output.view(-1, 1), masks.view(-1, 1))
-        acc=sum(abs(pred_output.view(-1, 1)-masks.view(-1, 1)))
 
-        if masks !=None:            
-            return loss,acc
-        else:
-            return pred_output
+
+# When we want to access some customized attributes of the DDP wrapped model, we must reference model.module. 
+# That is to say, our model instance is saved as a module attribute of the DDP model. 
+# If we assign some attributes xxx other than built-in properties or functions, we must access them by model.module.xxx.
+# When we save the DDP model, our state_dict would add a module prefix to all parameters.
+# Consequently, if we want to load a DDP saved model to a non-DDP model, we have to manually strip the extra prefix. I provide my code below:
+# in case we load a DDP model checkpoint to a non-DDP model
+
+# model_dict = OrderedDict()
+# pattern = re.compile('module.')
+# for k,v in state_dict.items():
+#     if re.search("module", k):
+#         model_dict[re.sub(pattern, '', k)] = v
+#     else:
+#         model_dict = state_dict
+# model.load_state_dict(model_dict)
+
+
+# History file, may useful in the later.
+# class Egformer(nn.Module):
+
+#     def __init__(self,**loaded_model_hparams):
+#         super(Egformer,self).__init__()
+#         self.arc=EGformer(**loaded_model_hparams)        
+#         self.mask_loss = nn.MSELoss()
+#     def norm_label(self,data,y_mean=-7,y_std=6):
+
+#         label=data.y/data.natoms
+#         label=(label-y_mean)/y_std
+#         return label
+
+#     def forward(self,data):
+#         pred_output = self.arc(data)        
+#         masks=self.norm_label(data)
+#         loss = self.mask_loss(pred_output.view(-1, 1), masks.view(-1, 1))
+#         acc=sum(abs(pred_output.view(-1, 1)-masks.view(-1, 1)))
+
+#         if masks !=None:            
+#             return loss,acc
+#         else:
+#             return pred_output
