@@ -14,6 +14,9 @@
 
 -See the requirements.yml
 
+## how to use
+
+~CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.run --nnodes=1 --nproc_per_node=4 train_gpus.py
 
 ## Acknowledgements
 

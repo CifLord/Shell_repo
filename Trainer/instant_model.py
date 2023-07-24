@@ -1,15 +1,20 @@
 
 import torch.nn as nn
 from Models.EGformer import EGformer
+import os
+import yaml
+import torch
 
 
 def config_model():
-    with open('../params/model_hparams.yml', 'r') as file:
+    script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the current script
+    file_path = os.path.join(script_dir, '..', 'params', 'model_hparams.yml')
+    with open(file_path, 'r') as file:
         loaded_model_hparams = yaml.load(file, Loader=yaml.FullLoader)
 
     # Create the model using the loaded hyperparameters
     model = EGformer(**loaded_model_hparams)
-    checkpoint_path='../params/gemnet_oc_base_oc20_oc22.pt'
+    checkpoint_path=os.path.join(script_dir, '..', 'params', 'gemnet_oc_base_oc20_oc22.pt')
     pretrained_state_dict = torch.load(checkpoint_path)['state_dict']
     new_model_state_dict = model.state_dict()
     filtered_pretrained_state_dict = {k.strip('module.module.'): v for k, v in pretrained_state_dict.items() if k.strip('module.module.') in new_model_state_dict}
