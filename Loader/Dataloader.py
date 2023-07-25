@@ -23,9 +23,9 @@ class DistributedDataLoader(DataLoader):
 
 
 def setup(rank,world_size):
-    #os.environ['MASTER_ADDR']='localhost'
+    os.environ['MASTER_ADDR']='localhost'
     #os.environ['MASTER_PORT']='12355'
-    num_threads=1
-    os.environ['OMP_NUM_THREADS']=str(num_threads)
+    #num_threads=1
+    #os.environ['OMP_NUM_THREADS']=str(num_threads)
     dist.init_process_group("nccl",rank=rank,world_size=world_size)
     

@@ -1,4 +1,4 @@
-batch_size: 6
+batch_size: 4
 bond_feat_dim: 0
 num_atoms: 0
 num_heads: 4
