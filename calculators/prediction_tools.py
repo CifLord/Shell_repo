@@ -213,7 +213,7 @@ class CalculationThread(threading.Thread):
             relaxed_energy=atoms.get_potential_energy()
             max_forces=np.max(atoms.get_forces())
             pos_relaxed_300=atoms.get_positions()
-            return unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300
+            return unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300, atoms.get_chemical_formula()
         except:
             return None,None,None,None
 
