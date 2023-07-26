@@ -1,32 +1,35 @@
 from pathlib import Path
 from ocpmodels.datasets import LmdbDataset
-import json, argparse
+import json, argparse, os
 
 
 def read_options():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-i", "--lmdb_path", dest="lmdb_path", type=str,
+    parser.add_argument("-l", "--lmdb", dest="lmdb_path", type=str,
                         help="Location of lmdbs")
-    parser.add_argument("-i", "--json_predictions_path", dest="json_predictions_path", type=str,
+    parser.add_argument("-j", "--json", dest="json_predictions_path", type=str,
                         help="Location of json files")
-    parser.add_argument("-i", "--output_path", dest="output_path", type=str,
+    parser.add_argument("-o", "--output", dest="output_path", type=str,
                         help="Location of output files")
-    return parser
+
+    args = parser.parse_args()
+    return args
     
 if __name__=="__main__":
 
     args = read_options()
-    ppath=Path(args.prediction_path)
+    ppath=Path(args.lmdb_path)
 
     sid_E100s={}
     db_paths = sorted(ppath.glob("*ads.lmdb"))
     for db_path in db_paths:
         datas=LmdbDataset({"src":db_path})
-        for i in range(len(datas)):
-            if datas.preds=='Failed':
-                sid_E100s[round(datas[i].y,2)]=datas[i].rid
+        for i, data in enumerate(datas):
+            print(data)
+            if data.preds=='Failed':
+                sid_E100s[round(data.y,2)]=data.rid
             else:
                 pass
 
