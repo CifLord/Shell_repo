@@ -10,7 +10,7 @@ def config_model():
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the current script
     file_path = os.path.join(script_dir, '..', 'params', 'model_hparams.yml')
     with open(file_path, 'r') as file:
-        loaded_model_hparams = yaml.load(file, Loader=yaml.FullLoader)
+        loaded_model_hparams = yaml.load(file, Loader=yaml.FullLoader)['model']
 
     # Create the model using the loaded hyperparameters
     model = EGformer(**loaded_model_hparams)

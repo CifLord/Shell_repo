@@ -9,19 +9,24 @@ from Trainer.base_fn import Trainer
 from Models.EGformer import EGformer
 import torch.distributed as dist
 import torch.multiprocessing as mp
- # Initialize the distributed environment
 from Loader.Dataloader import setup, DistributedDataLoader
 from Trainer.instant_model import config_model
 
-warmup_epochs=5
-decay_epochs=15   
-y_mean=-7
-y_std=6
-num_epochs=20
-batch_size = 4
-learning_rate=0.001
+
+
+# Hyperparameters
+with open('params/model_hparams.yml', 'r') as file:
+    hyper_config = yaml.load(file, Loader=yaml.FullLoader)
+warmup_epochs = hyper_config['configs'].get("warmup_epochs")
+decay_epochs = hyper_config['configs'].get("decay_epochs")
+y_mean = hyper_config['configs'].get("y_mean")
+y_std = hyper_config['configs'].get("y_std")
+num_epochs =hyper_config['configs'].get("num_epochs")
+batch_size = hyper_config['configs'].get("batch_size")
+learning_rate = hyper_config['configs'].get("learning_rate")
+train_set=hyper_config['dataset'].get("train_set")
+dataset=LmdbDataset({"src":train_set})
 #DEVICE=torch.device("cuda" if torch.cuda.is_available() else "cpu")
-dataset=LmdbDataset({"src":"/shareddata/ocp/ocp22/oc22_trajectories/trajectories/Transformer_clean_valid/"})
 
 def main(snapshot_path:str ="snapshot.pt"):
     
@@ -31,8 +36,7 @@ def main(snapshot_path:str ="snapshot.pt"):
     # Split the dataset into train and validation
     train_dataset, val_dataset =random_split(dataset, [train_length, val_length])
     train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
-    val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)
-    
+    val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)    
     # Create the model using the loaded hyperparameters
     # torch.cuda.set_device(rank)   
     model=config_model()    

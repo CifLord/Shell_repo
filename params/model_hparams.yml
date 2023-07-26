@@ -1,5 +1,21 @@
-batch_size: 4
-bond_feat_dim: 0
-num_atoms: 0
-num_heads: 4
-num_targets: 0
+model:
+    batch_size: 4
+    bond_feat_dim: 0
+    num_atoms: 0
+    num_heads: 4
+    num_targets: 0
+    
+configs:
+    batch_size : 4
+    warmup_epochs: 5
+    decay_epochs: 7   
+    y_mean: -7
+    y_std: 6
+    num_epochs: 10   
+    learning_rate: 0.001
+    
+dataset: 
+    train_set: "/shareddata/ocp/ocp22/oc22_trajectories/trajectories/Transformer_clean_valid/"
+    val_set: "/shareddata/ocp/ocp22/oc22_trajectories/trajectories/Transformer_clean_valid/"
+    test_set: "/shareddata/ocp/ocp22/oc22_trajectories/trajectories/Transformer_clean_valid/"
+    

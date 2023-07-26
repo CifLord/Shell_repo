@@ -73,9 +73,10 @@ class Trainer:
         self.decay_scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=decay_epochs, gamma=0.1)
         self.best_valid_loss = np.Inf
         #self.model=DDP(self.model,device_ids=[self.gpu_id])
-
-        wandb.init(project='shell-transformer')
-        wandb.watch(self.model)
+        
+        if self.gpu_id==0:
+            wandb.init(no_op=True,project='shell-transformer')
+            wandb.watch(self.model)
 
     def train(self, num_epochs):
         for epoch in range(self.epochs_run,num_epochs):
@@ -94,9 +95,10 @@ class Trainer:
                 self.best_valid_loss = valid_loss
 
             current_lr = self.optimizer.param_groups[0]['lr']
-            wandb.log({'epoch': epoch, 'Train_loss': train_loss, 'Valid_loss': valid_loss, 'Valid acc': acc,
+            if self.gpu_id==0:
+                wandb.log({'epoch': epoch, 'Train_loss': train_loss, 'Valid_loss': valid_loss, 'Valid acc': acc,
                        'lr': current_lr})
-            print(f'epoch:{epoch+1} Train_loss:{train_loss} Valid_loss:{valid_loss} Valid acc:{acc} lr:{current_lr}')
+                print(f'epoch:{epoch+1} Train_loss:{train_loss} Valid_loss:{valid_loss} Valid acc:{acc} lr:{current_lr}')
 
     def train_epoch(self, epoch, optimize_after=8):
         self.train_loader.sampler.set_epoch(epoch)
