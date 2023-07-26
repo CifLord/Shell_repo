@@ -3,7 +3,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+from torch.nn.parallel import DistributedDataParallel as DDP
 import wandb
+import os
 
 def train_fn(data_loader, model, optimizer, device,epoch, optimize_after=8):
     data_loader.sampler.set_epoch(epoch)
@@ -48,28 +50,35 @@ def eval_fn(data_loader,model,device,epoch):
 
 
 class Trainer:
-    def __init__(self, model, train_loader, val_loader, device, learning_rate, warmup_epochs, decay_epochs):
-        self.model = model
+    def __init__(self, model, train_loader, val_loader, learning_rate, warmup_epochs:int, decay_epochs:int,snapshot_path:str):
+        
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.device = device
+        self.gpu_id=int(os.environ["LOCAL_RANK"])
+        #self.gpu_id = gpu_id
         self.learning_rate = learning_rate
         self.warmup_epochs = warmup_epochs
         self.decay_epochs = decay_epochs
+        
+        if os.path.exists(snapshot_path):
+            print('Loading snapshot')
+            self._load_snapshot(snapshot_path)
 
-        torch.cuda.set_device(device)
-        self.model = self.model.to(device)
+        #torch.cuda.set_device(device)
+        self.model = model.to(self.gpu_id)
+        self.epochs_run=0
         self.criterion = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         self.warmup_scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lambda epoch: epoch / warmup_epochs)
         self.decay_scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=decay_epochs, gamma=0.1)
         self.best_valid_loss = np.Inf
+        #self.model=DDP(self.model,device_ids=[self.gpu_id])
 
         wandb.init(project='shell-transformer')
         wandb.watch(self.model)
 
     def train(self, num_epochs):
-        for epoch in range(num_epochs):
+        for epoch in range(self.epochs_run,num_epochs):
             train_loss = self.train_epoch(epoch)
             valid_loss, acc = self.evaluate(epoch)
 
@@ -78,8 +87,9 @@ class Trainer:
             else:
                 self.decay_scheduler.step()
 
-            if valid_loss < self.best_valid_loss:
-                torch.save(self.model.state_dict(), 'best_model_n.pt')
+            if self.gpu_id==0 and valid_loss < self.best_valid_loss:
+                #ckp=self.model.module.state_dict()
+                self._save_snapshot(epoch)
                 print('saved-model')
                 self.best_valid_loss = valid_loss
 
@@ -95,7 +105,7 @@ class Trainer:
         iteration = 0
 
         for images in tqdm(self.train_loader):
-            images = images.to(self.device)
+            images = images.to(self.gpu_id)
             self.optimizer.zero_grad()
             predictions = self.model(images)
             targets = images.y / images.natoms
@@ -119,7 +129,7 @@ class Trainer:
 
         with torch.no_grad():
             for images in tqdm(self.val_loader):
-                images = images.to(self.device)
+                images = images.to(self.gpu_id)
                 predictions = self.model(images)
                 targets = images.y / images.natoms
                 loss, acc = self.get_loss(predictions, targets)
@@ -135,3 +145,16 @@ class Trainer:
         loss = mask_loss(predictions.view(-1, 1), masks.view(-1, 1))
         accuracy = mask_acc(predictions.view(-1, 1) , masks.view(-1, 1))
         return loss, accuracy
+    def _save_snapshot(self,epoch):
+        snapshot={}
+        model=self.model
+        raw_model=model.module if hasattr(model,"module") else model
+        snapshot["MODEL_STATE"]=raw_model.state_dict()
+        snapshot["EPOCHS_RUN"]=epoch
+        torch.save(snapshot,"./params/best_model.pt")
+            
+    def _load_snapshot(self,snapshot_path):
+        snapshot=torch.load(snapshot_path)
+        self.model.load_state_dict(snapshot["MODEL_STATE"])
+        self.epochs_run=snapshot["EPOCHS_RUN"]
+        print(f"Resuming training from snapshot at Epoch{self.epochs_run}")

@@ -7,44 +7,44 @@ from typing import Any
 import torch.nn.init as init
 from Trainer.base_fn import Trainer
 from Models.EGformer import EGformer
-from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
 import torch.multiprocessing as mp
  # Initialize the distributed environment
 from Loader.Dataloader import setup, DistributedDataLoader
 from Trainer.instant_model import config_model
 
-warmup_epochs=3
-decay_epochs=5   
+warmup_epochs=5
+decay_epochs=15   
 y_mean=-7
 y_std=6
-num_epochs=10
+num_epochs=20
 batch_size = 4
 learning_rate=0.001
 #DEVICE=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dataset=LmdbDataset({"src":"/shareddata/ocp/ocp22/oc22_trajectories/trajectories/Transformer_clean_valid/"})
 
-def main(rank,world_size):
+def main(snapshot_path:str ="snapshot.pt"):
     
-    setup(rank,world_size)
+    setup()
     train_length = int(0.8 * len(dataset))
     val_length = len(dataset) - train_length
     # Split the dataset into train and validation
     train_dataset, val_dataset =random_split(dataset, [train_length, val_length])
-    train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,rank=rank,world_size=world_size,drop_last=False)
-    val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,rank=rank,world_size=world_size,drop_last=False)
+    train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
+    val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)
     
     # Create the model using the loaded hyperparameters
-    torch.cuda.set_device(rank)   
+    # torch.cuda.set_device(rank)   
     model=config_model()    
     
-    trainer = Trainer(model, train_loader, val_loader, device=rank, learning_rate=learning_rate,
-                      warmup_epochs=warmup_epochs, decay_epochs=decay_epochs)
+    trainer = Trainer(model, train_loader, val_loader, learning_rate=learning_rate,
+                      warmup_epochs=warmup_epochs, decay_epochs=decay_epochs,snapshot_path=snapshot_path)
     trainer.train(num_epochs)
     dist.destroy_process_group()
     
 if __name__ == '__main__':
     world_size=4
-    mp.spawn(main,args=(world_size,),nprocs=world_size)
+    main()
     
 
 #model=model.to(rank)

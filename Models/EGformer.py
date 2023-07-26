@@ -319,7 +319,7 @@ class EGformer(GemNetOC):
                         emb_size_trans=64,
                         out_layer1=32,
                         out_layer2=1,
-                        batch_size=2                        
+                        batch_size=4                        
                         )
         self.batch_size=batch_size
         self.num_heads=num_heads        
@@ -336,6 +336,7 @@ class EGformer(GemNetOC):
     def forward(self, data):
         pos = data.pos
         batch = data.batch
+        #print(len(data))
         debug=False
         if debug is True:
             E_t=1
@@ -344,6 +345,7 @@ class EGformer(GemNetOC):
         else:
         
             atomic_numbers = data.atomic_numbers.long()
+            
             num_atoms = atomic_numbers.shape[0]
             if self.regress_forces and not self.direct_forces:
                 pos.requires_grad_(True)
@@ -387,7 +389,7 @@ class EGformer(GemNetOC):
             # (nAtoms, emb_size_atom)
             m = self.edge_emb(h, basis_rad_raw, main_graph["edge_index"])
             # (nEdges, emb_size_edge)
-
+            
             x_E, _ = self.out_blocks[0](h, m, basis_output, idx_t)
             # print(x_E.shape)
             # xs_E, _ = [x_E], [x_F]
