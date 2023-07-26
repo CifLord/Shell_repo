@@ -183,7 +183,7 @@ class CalculationThread(threading.Thread):
     def run(self):
         for data in tqdm(self.traj_in):
             
-            unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300 = self.cal_from_s100(self.calc,data, self.traj_out_path)
+            unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300, slab_formula = self.cal_from_s100(self.calc,data, self.traj_out_path)
             if unrelax_slab_energy is not None:
                 continue_calc = {}
                 continue_calc[data] = {}
@@ -191,6 +191,7 @@ class CalculationThread(threading.Thread):
                 continue_calc[data]['max_forces'] =str(max_forces)
                 continue_calc[data]['relaxed_energy'] = str(relaxed_energy)
                 continue_calc[data]['pos_relaxed_300'] = pos_relaxed_300.tolist()
+                continue_calc[data]['slab_formula'] = slab_formula
                 data_name=data.split('+')[-1].replace('.traj','')
                 with open(f"./prediction/continue_result/{data_name}.json", "w") as outfile:
                     json.dump(continue_calc, outfile)
