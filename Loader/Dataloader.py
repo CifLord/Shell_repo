@@ -4,6 +4,8 @@ from torch.utils.data.distributed import DistributedSampler
 #from torch.utils.data import DataLoader
 from torch_geometric.loader import DataLoader
 import torch.distributed as dist
+from torch_geometric.data import Dataset
+from ocpmodels.datasets import LmdbDataset
 class DistributedDataLoader(DataLoader):
     
     '''master node:
@@ -21,6 +23,20 @@ class DistributedDataLoader(DataLoader):
         sampler = DistributedSampler(dataset, drop_last=True)
         super().__init__(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, sampler=sampler,drop_last=True)
 
+
+class MyDataset(Dataset):
+    def __init__(self, data_path, transform=None):
+        self.dataset = LmdbDataset({"src": data_path})
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.dataset)-1
+
+    def __getitem__(self, idx):
+        data = self.dataset[idx]
+        if self.transform:
+            data = self.transform(data)
+        return data
 
 def setup():
     #os.environ['MASTER_ADDR']='localhost'

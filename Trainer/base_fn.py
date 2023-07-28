@@ -75,7 +75,7 @@ class Trainer:
         #self.model=DDP(self.model,device_ids=[self.gpu_id])
         
         if self.gpu_id==0:
-            wandb.init(no_op=True,project='shell-transformer')
+            wandb.init(project='shell-transformer')
             wandb.watch(self.model)
 
     def train(self, num_epochs):
@@ -134,18 +134,20 @@ class Trainer:
                 images = images.to(self.gpu_id)
                 predictions = self.model(images)
                 targets = images.y / images.natoms
-                loss, acc = self.get_loss(predictions, targets)
+                num_atoms=images.natoms
+                loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
                 total_loss += loss.item()
                 total_acc += acc.item()
 
         return total_loss / len(self.val_loader), total_acc / len(self.val_loader)
 
-    def get_loss(self,predictions, targets, y_mean=-7, y_std=6):
+    def get_loss(self,predictions, targets, num_atoms=1,y_mean=-7, y_std=6):
         masks = (targets- y_mean) / y_std
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
         loss = mask_loss(predictions.view(-1, 1), masks.view(-1, 1))
-        accuracy = mask_acc(predictions.view(-1, 1) , masks.view(-1, 1))
+        pred_back = predictions.view(-1,1)*y_std+y_mean
+        accuracy = mask_acc(pred_back.view(-1, 1)*num_atoms , targets.view(-1, 1)*num_atoms)
         return loss, accuracy
     def _save_snapshot(self,epoch):
         snapshot={}

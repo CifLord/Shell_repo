@@ -3,16 +3,16 @@ import wandb
 import torch
 from ocpmodels.datasets import LmdbDataset
 from torch.utils.data import random_split
+from torch_geometric.data import Dataset
 from typing import Any
 import torch.nn.init as init
 from Trainer.base_fn import Trainer
 from Models.EGformer import EGformer
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from Loader.Dataloader import setup, DistributedDataLoader
+from Loader.Dataloader import setup, DistributedDataLoader,MyDataset
 from Trainer.instant_model import config_model
-
-
+import yaml
 
 # Hyperparameters
 with open('params/model_hparams.yml', 'r') as file:
@@ -24,33 +24,39 @@ y_std = hyper_config['configs'].get("y_std")
 num_epochs =hyper_config['configs'].get("num_epochs")
 batch_size = hyper_config['configs'].get("batch_size")
 learning_rate = hyper_config['configs'].get("learning_rate")
+world_size=hyper_config['configs'].get("world_size")
 train_set=hyper_config['dataset'].get("train_set")
-dataset=LmdbDataset({"src":train_set})
+val_set=hyper_config['dataset'].get("val_set")
 #DEVICE=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def main(snapshot_path:str ="snapshot.pt"):
+def main(snapshot_path:str ="snapshot.pt",test_code=True):
     
     setup()
-    train_length = int(0.8 * len(dataset))
-    val_length = len(dataset) - train_length
+    if test_code==True:
+    # For test
     # Split the dataset into train and validation
-    train_dataset, val_dataset =random_split(dataset, [train_length, val_length])
+        dataset=LmdbDataset({"src":train_set})
+        train_length = int(0.8 * len(dataset))
+        val_length = len(dataset) - train_length        
+        train_dataset, val_dataset =random_split(dataset, [train_length, val_length])
+    else:
+        train_dataset = MyDataset(train_set)
+        val_dataset = MyDataset(val_set)
+        
     train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
     val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)    
     # Create the model using the loaded hyperparameters
     # torch.cuda.set_device(rank)   
     model=config_model()    
-    
     trainer = Trainer(model, train_loader, val_loader, learning_rate=learning_rate,
                       warmup_epochs=warmup_epochs, decay_epochs=decay_epochs,snapshot_path=snapshot_path)
     trainer.train(num_epochs)
     dist.destroy_process_group()
     
-if __name__ == '__main__':
-    world_size=4
-    main()
+if __name__ == '__main__':    
+    main(test_code=False)
     
-
+#old version: singgle gpu
 #model=model.to(rank)
 #model=DDP(model,device_ids=[rank],output_device=rank,find_unused_parameters=True)
 #criterion=nn.MSELoss()
