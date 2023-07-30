@@ -70,9 +70,9 @@ class Trainer:
         self.criterion = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         self.warmup_scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lambda epoch: epoch / warmup_epochs)
-        self.decay_scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=decay_epochs, gamma=0.1)
+        self.decay_scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=decay_epochs, gamma=0.9)
         self.best_valid_loss = np.Inf
-        #self.model=DDP(self.model,device_ids=[self.gpu_id])
+        self.model=DDP(self.model,device_ids=[self.gpu_id],find_unused_parameters=True)
         
         if self.gpu_id==0:
             wandb.init(project='shell-transformer')

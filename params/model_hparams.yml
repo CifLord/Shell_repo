@@ -3,13 +3,13 @@ model:
     bond_feat_dim: 0
     num_atoms: 0
     num_heads: 4
-    num_targets: 0
+    num_targets: 1
     
 configs:
     batch_size : 5
     world_size: 4
     warmup_epochs: 5
-    decay_epochs: 10   
+    decay_epochs: 2   
     y_mean: -7
     y_std: 6
     num_epochs: 15   

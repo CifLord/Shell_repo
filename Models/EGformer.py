@@ -255,7 +255,7 @@ class EGformer(GemNetOC):
         emb_size_trans=64,
         out_layer1=32,
         out_layer2=1,
-        batch_size=2,
+        batch_size=5,
         **kwargs,  # backwards compatibility with deprecated arguments
     ):
         super().__init__(
@@ -319,7 +319,7 @@ class EGformer(GemNetOC):
                         emb_size_trans=64,
                         out_layer1=32,
                         out_layer2=1,
-                        batch_size=4                        
+                        batch_size=5                        
                         )
         self.batch_size=batch_size
         self.num_heads=num_heads        
@@ -336,121 +336,115 @@ class EGformer(GemNetOC):
     def forward(self, data):
         pos = data.pos
         batch = data.batch
-        #print(len(data))
-        debug=False
-        if debug is True:
-            E_t=1
-            print('checkpoint0')
-            return E_t
-        else:
+        #print(len(data))    
+        atomic_numbers = data.atomic_numbers.long()
         
-            atomic_numbers = data.atomic_numbers.long()
-            
-            num_atoms = atomic_numbers.shape[0]
-            if self.regress_forces and not self.direct_forces:
-                pos.requires_grad_(True)
+        num_atoms = atomic_numbers.shape[0]
+        if self.regress_forces and not self.direct_forces:
+            pos.requires_grad_(True)
 
-            (
-                main_graph,
-                a2a_graph,
-                a2ee2a_graph,
-                qint_graph,
-                id_swap,
-                trip_idx_e2e,
-                trip_idx_a2e,
-                trip_idx_e2a,
-                quad_idx,
-            ) = self.get_graphs_and_indices(data)
-            # print('checkpoint1')
-            _, idx_t = main_graph["edge_index"]
+        (
+            main_graph,
+            a2a_graph,
+            a2ee2a_graph,
+            qint_graph,
+            id_swap,
+            trip_idx_e2e,
+            trip_idx_a2e,
+            trip_idx_e2a,
+            quad_idx,
+        ) = self.get_graphs_and_indices(data)
+        # print('checkpoint1')
+        _, idx_t = main_graph["edge_index"]
 
-            (
-                basis_rad_raw,
-                basis_atom_update,
-                basis_output,
-                bases_qint,
-                bases_e2e,
-                bases_a2e,
-                bases_e2a,
-                basis_a2a_rad,
-            ) = self.get_bases(
-                main_graph=main_graph,
-                a2a_graph=a2a_graph,
+        (
+            basis_rad_raw,
+            basis_atom_update,
+            basis_output,
+            bases_qint,
+            bases_e2e,
+            bases_a2e,
+            bases_e2a,
+            basis_a2a_rad,
+        ) = self.get_bases(
+            main_graph=main_graph,
+            a2a_graph=a2a_graph,
+            a2ee2a_graph=a2ee2a_graph,
+            qint_graph=qint_graph,
+            trip_idx_e2e=trip_idx_e2e,
+            trip_idx_a2e=trip_idx_a2e,
+            trip_idx_e2a=trip_idx_e2a,
+            quad_idx=quad_idx,
+            num_atoms=num_atoms,
+        )
+        # Embedding block
+        h = self.atom_emb(atomic_numbers)
+        # (nAtoms, emb_size_atom)
+        m = self.edge_emb(h, basis_rad_raw, main_graph["edge_index"])
+        # (nEdges, emb_size_edge)
+        
+        x_E, _ = self.out_blocks[0](h, m, basis_output, idx_t)
+        # print(x_E.shape)
+        # xs_E, _ = [x_E], [x_F]
+        xs_E = [x_E]
+        # (nAtoms, num_targets), (nEdges, num_targets)
+
+        for i in range(self.num_blocks):
+            # Interaction block
+            h, m = self.int_blocks[i](
+                h=h,
+                m=m,
+                bases_qint=bases_qint,
+                bases_e2e=bases_e2e,
+                bases_a2e=bases_a2e,
+                bases_e2a=bases_e2a,
+                basis_a2a_rad=basis_a2a_rad,
+                basis_atom_update=basis_atom_update,
+                edge_index_main=main_graph["edge_index"],
                 a2ee2a_graph=a2ee2a_graph,
-                qint_graph=qint_graph,
+                a2a_graph=a2a_graph,
+                id_swap=id_swap,
                 trip_idx_e2e=trip_idx_e2e,
                 trip_idx_a2e=trip_idx_a2e,
                 trip_idx_e2a=trip_idx_e2a,
                 quad_idx=quad_idx,
-                num_atoms=num_atoms,
-            )
-            # Embedding block
-            h = self.atom_emb(atomic_numbers)
-            # (nAtoms, emb_size_atom)
-            m = self.edge_emb(h, basis_rad_raw, main_graph["edge_index"])
-            # (nEdges, emb_size_edge)
-            
-            x_E, _ = self.out_blocks[0](h, m, basis_output, idx_t)
-            # print(x_E.shape)
-            # xs_E, _ = [x_E], [x_F]
-            xs_E = [x_E]
-            # (nAtoms, num_targets), (nEdges, num_targets)
+            )  # (nAtoms, emb_size_atom), (nEdges, emb_size_edge)
 
-            for i in range(self.num_blocks):
-                # Interaction block
-                h, m = self.int_blocks[i](
-                    h=h,
-                    m=m,
-                    bases_qint=bases_qint,
-                    bases_e2e=bases_e2e,
-                    bases_a2e=bases_a2e,
-                    bases_e2a=bases_e2a,
-                    basis_a2a_rad=basis_a2a_rad,
-                    basis_atom_update=basis_atom_update,
-                    edge_index_main=main_graph["edge_index"],
-                    a2ee2a_graph=a2ee2a_graph,
-                    a2a_graph=a2a_graph,
-                    id_swap=id_swap,
-                    trip_idx_e2e=trip_idx_e2e,
-                    trip_idx_a2e=trip_idx_a2e,
-                    trip_idx_e2a=trip_idx_e2a,
-                    quad_idx=quad_idx,
-                )  # (nAtoms, emb_size_atom), (nEdges, emb_size_edge)
+            x_E, _ = self.out_blocks[i + 1](h, m, basis_output, idx_t)
+            # (nAtoms, emb_size_atom), (nEdges, emb_size_edge)
+            xs_E.append(x_E)
+            # xs_F.append(x_F)
 
-                x_E, _ = self.out_blocks[i + 1](h, m, basis_output, idx_t)
-                # (nAtoms, emb_size_atom), (nEdges, emb_size_edge)
-                xs_E.append(x_E)
-                # xs_F.append(x_F)
+        E_t = torch.stack(xs_E, dim=-1)
+        # E_t= torch.mean(E_t)
+        # print('checkpoint1')
+        
+        # num_atoms=[]
+        if self.batch_size==1:
+            E_t = torch.sum(E_t,dim=-1)
+            E_t = torch.unsqueeze(E_t, dim=0)
+        else:
+            num_atoms=[data[j].natoms[0] for j in range(self.batch_size)]
+        # for j in range(self.batch_size):
+        #         num_atoms.append(data[j].natoms[0])                
+        # split_indices =(np.cumsum(num_atoms)[:-1])[0]
+            E_t = torch.sum(E_t,dim=-1)
+            E_t = torch.split(E_t,num_atoms,dim=0)
+        # print('checkpoint2')
+            E_t = rnn_utils.pad_sequence(E_t, batch_first=True, padding_value=0)
+        E_t=self.lin_1(E_t)
+        E_t = self.layer_norm(E_t)
 
-            E_t = torch.stack(xs_E, dim=-1)
-            # E_t= torch.mean(E_t)
-            # print('checkpoint1')
-            
-            # num_atoms=[]
-            if self.batch_size==1:
-                E_t = torch.sum(E_t,dim=-1)
-            else:
-                num_atoms=[data[j].natoms[0] for j in range(self.batch_size)]
-            # for j in range(self.batch_size):
-            #         num_atoms.append(data[j].natoms[0])                
-            # split_indices =(np.cumsum(num_atoms)[:-1])[0]
-                E_t = torch.sum(E_t,dim=-1)
-                E_t = torch.split(E_t,num_atoms,dim=0)
-            # print('checkpoint2')
-                E_t = rnn_utils.pad_sequence(E_t, batch_first=True, padding_value=0)
-            E_t=self.lin_1(E_t)
-            E_t = self.layer_norm(E_t)
+        E_t,encoder_attention_weights=self.encoder(E_t,mask=None)
+        # nMolecules = torch.max(batch) + 1
+        E_t=torch.sum(E_t,dim=1)       
+        E_t = self.layer_norm(E_t)   
+        # print('checkpoint3')    
+        E_t=torch.unsqueeze(E_t,dim=0)        
+        E_t = E_t.permute(1, 0, 2)        
+        # E_t = scatter(
+        #         E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
+        #     )  
+        E_t=self.dense(E_t)
 
-            E_t,encoder_attention_weights=self.encoder(E_t,mask=None)
-            # nMolecules = torch.max(batch) + 1
-            E_t=torch.sum(E_t,dim=1)       
-            E_t = self.layer_norm(E_t)   
-            # print('checkpoint3')    
-            E_t=torch.unsqueeze(E_t,dim=0)        
-            E_t = E_t.permute(1, 0, 2)        
-            # E_t = scatter(
-            #         E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
-            #     )  
-            E_t=self.dense(E_t)
-
-            return E_t
+        return E_t

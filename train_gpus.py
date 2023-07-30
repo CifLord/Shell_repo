@@ -13,8 +13,9 @@ import torch.multiprocessing as mp
 from Loader.Dataloader import setup, DistributedDataLoader,MyDataset
 from Trainer.instant_model import config_model
 import yaml
+from ocpmodels.models.gemnet_oc.gemnet_oc import GemNetOC
 
-# Hyperparameters
+# Load Hyperparameters
 with open('params/model_hparams.yml', 'r') as file:
     hyper_config = yaml.load(file, Loader=yaml.FullLoader)
 warmup_epochs = hyper_config['configs'].get("warmup_epochs")
@@ -27,15 +28,15 @@ learning_rate = hyper_config['configs'].get("learning_rate")
 world_size=hyper_config['configs'].get("world_size")
 train_set=hyper_config['dataset'].get("train_set")
 val_set=hyper_config['dataset'].get("val_set")
-#DEVICE=torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def main(snapshot_path:str ="snapshot.pt",test_code=True):
-    
+    #setup the parallel environment
     setup()
     if test_code==True:
     # For test
     # Split the dataset into train and validation
-        dataset=LmdbDataset({"src":train_set})
+        dataset=LmdbDataset({"src":val_set})
         train_length = int(0.8 * len(dataset))
         val_length = len(dataset) - train_length        
         train_dataset, val_dataset =random_split(dataset, [train_length, val_length])
@@ -45,8 +46,7 @@ def main(snapshot_path:str ="snapshot.pt",test_code=True):
         
     train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
     val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)    
-    # Create the model using the loaded hyperparameters
-    # torch.cuda.set_device(rank)   
+    # Create the model using the loaded hyperparameters       
     model=config_model()    
     trainer = Trainer(model, train_loader, val_loader, learning_rate=learning_rate,
                       warmup_epochs=warmup_epochs, decay_epochs=decay_epochs,snapshot_path=snapshot_path)
@@ -54,10 +54,15 @@ def main(snapshot_path:str ="snapshot.pt",test_code=True):
     dist.destroy_process_group()
     
 if __name__ == '__main__':    
-    main(test_code=False)
-    
+    main(test_code=True)
+ 
+ 
+ 
+#---------------------------------------------------------------------------------------------------------    
 #old version: singgle gpu
+#DEVICE=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model=model.to(rank)
+# torch.cuda.set_device(rank)
 #model=DDP(model,device_ids=[rank],output_device=rank,find_unused_parameters=True)
 #criterion=nn.MSELoss()
 #optimizer=torch.optim.Adam(model.parameters(),lr=learning_rate)
