@@ -84,7 +84,7 @@ def cal_slab_energy(data, calc, traj_output=False, debug=False):
     unrelax_slab_energy = testobj.get_potential_energy()
     
     # add selective dynamics
-    if len(data.fixed):#maybe previous method is more stable...
+    if len(data.fixed): # maybe previous method is more stable...
         c = FixAtoms(mask=data.fixed)
         testobj.set_constraint(c)
     
@@ -113,10 +113,10 @@ def cal_slab_energy(data, calc, traj_output=False, debug=False):
     return unrelax_slab_energy, relax_slab_energy, forces, pos_relaxed
 
 
-def add_info(data, calc, debug=False):
+def add_info(data, calc, debug=False, traj_output=False):
     
     unrelax_slab_energy, relax_slab_energy,forces, pos_relaxed = \
-    cal_slab_energy(data, calc, traj_output=True, debug=debug)
+    cal_slab_energy(data, calc, traj_output=traj_output, debug=debug)
     
     data.y = relax_slab_energy
     data.unrelax_energy = unrelax_slab_energy
@@ -188,10 +188,11 @@ class CalculationThread(threading.Thread):
                 continue_calc = {}
                 continue_calc[data] = {}
                 continue_calc[data]['unrelaxed_energy']=str(unrelax_slab_energy)
-                continue_calc[data]['max_forces'] =str(max_forces)
+                continue_calc[data]['max_forces'] = str(max_forces)
                 continue_calc[data]['relaxed_energy'] = str(relaxed_energy)
                 continue_calc[data]['pos_relaxed_300'] = pos_relaxed_300.tolist()
                 continue_calc[data]['slab_formula'] = slab_formula
+                
                 data_name=data.split('+')[-1].replace('.traj','')
                 with open(f"./prediction/continue_result/{data_name}.json", "w") as outfile:
                     json.dump(continue_calc, outfile)
@@ -216,6 +217,6 @@ class CalculationThread(threading.Thread):
             pos_relaxed_300=atoms.get_positions()
             return unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300, atoms.get_chemical_formula()
         except:
-            return None,None,None,None,None
+            return None,None,None,None,None, None
 
         
