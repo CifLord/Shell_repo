@@ -141,7 +141,7 @@ class Trainer:
 
         return total_loss / len(self.val_loader), total_acc / len(self.val_loader)
 
-    def get_loss(self,predictions, targets, num_atoms=1,y_mean=-7, y_std=6):
+    def get_loss(self,predictions, targets, num_atoms=1,y_mean=-6.21, y_std=7.26):
         masks = (targets- y_mean) / y_std
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()

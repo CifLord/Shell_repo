@@ -10,8 +10,8 @@ configs:
     world_size: 4
     warmup_epochs: 5
     decay_epochs: 2   
-    y_mean: -7
-    y_std: 6
+    y_mean: -6.21
+    y_std: 7.26
     num_epochs: 15   
     learning_rate: 0.001
     
