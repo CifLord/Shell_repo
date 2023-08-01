@@ -7,7 +7,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import wandb
 import os
 
-
 def train_fn(data_loader, model, optimizer, device,epoch, optimize_after=8):
     data_loader.sampler.set_epoch(epoch)
     model.train()
@@ -76,8 +75,8 @@ class Trainer:
         self.model=DDP(self.model,device_ids=[self.gpu_id],find_unused_parameters=True)
         
         if self.gpu_id==0:
-            wandb.init(project='shell-transformer')            
-            
+            wandb.init(project='shell-transformer')
+            wandb.watch(self.model)
 
     def train(self, num_epochs):
         for epoch in range(self.epochs_run,num_epochs):
@@ -97,7 +96,6 @@ class Trainer:
 
             current_lr = self.optimizer.param_groups[0]['lr']
             if self.gpu_id==0:
-                wandb.watch(self.model)
                 wandb.log({'epoch': epoch, 'Train_loss': train_loss, 'Valid_loss': valid_loss, 'Valid acc': acc,
                        'lr': current_lr})
                 print(f'epoch:{epoch+1} Train_loss:{train_loss} Valid_loss:{valid_loss} Valid acc:{acc} lr:{current_lr}')
@@ -112,9 +110,8 @@ class Trainer:
             images = images.to(self.gpu_id)
             self.optimizer.zero_grad()
             predictions = self.model(images)
-            targets = images.y 
-            num_atoms=images.natoms
-            loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms,norm=True)
+            targets = images.y / images.natoms
+            loss, acc = self.get_loss(predictions, targets)
             loss.backward()
 
             # Accumulate gradients for a specified number of iterations
@@ -136,26 +133,21 @@ class Trainer:
             for images in tqdm(self.val_loader):
                 images = images.to(self.gpu_id)
                 predictions = self.model(images)
-                targets = images.y 
+                targets = images.y / images.natoms
                 num_atoms=images.natoms
-                loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms,norm=True)
+                loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
                 total_loss += loss.item()
                 total_acc += acc.item()
 
         return total_loss / len(self.val_loader), total_acc / len(self.val_loader)
 
-    def get_loss(self,predictions, targets, num_atoms=1,norm=False,y_mean=-6.2, y_std=7.2):
-        #mean -6.213 std 7.259
+    def get_loss(self,predictions, targets, num_atoms=1,y_mean=-7, y_std=6):
+        masks = (targets- y_mean) / y_std
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
-        if norm == False:
-            loss = mask_loss(predictions.view(-1, 1),targets.view(-1, 1))
-            accuracy = mask_acc(predictions.view(-1, 1) , targets.view(-1, 1))
-        else:
-            masks = (targets/num_atoms- y_mean) / y_std  
-            loss = mask_loss(predictions.view(-1, 1), masks.view(-1, 1))        
-            pred_back = predictions.view(-1,1)*y_std+y_mean
-            accuracy = mask_acc(pred_back.view(-1, 1)*num_atoms , targets.view(-1, 1))
+        loss = mask_loss(predictions.view(-1, 1), masks.view(-1, 1))
+        pred_back = predictions.view(-1,1)*y_std+y_mean
+        accuracy = mask_acc(pred_back.view(-1, 1)*num_atoms , targets.view(-1, 1)*num_atoms)
         return loss, accuracy
     def _save_snapshot(self,epoch):
         snapshot={}
