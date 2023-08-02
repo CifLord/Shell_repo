@@ -111,7 +111,8 @@ class Trainer:
             self.optimizer.zero_grad()
             predictions = self.model(images)
             targets = images.y / images.natoms
-            loss, acc = self.get_loss(predictions, targets)
+            num_atoms=images.natoms
+            loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
             loss.backward()
 
             # Accumulate gradients for a specified number of iterations
