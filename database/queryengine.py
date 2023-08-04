@@ -16,7 +16,8 @@ kB = 1.380649 * 10**(-23)
 JtoeV = 6.242e+18
 
 from database import generate_metadata as q
-bulk_oxides_dict = json.load(open(os.path.join(q.__file__.replace(q.__file__.split('/')[-1], ''), 'bulk_oxides_20220621.json'), 'r'))
+bulk_oxides_dict = json.load(open(os.path.join(q.__file__.replace(q.__file__.split('/')[-1], ''), 
+                                               'bulk_oxides_20220621.json'), 'r'))
 bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_dict}
 
 class SurfaceQueryEngine(QueryEngine):
@@ -187,7 +188,6 @@ class SurfaceQueryEngine(QueryEngine):
         EH2O = self.ads_in_a_box['H2O']
         EH2 = self.ads_in_a_box['H2']
         etransfer = self.get_e_transfer_corr(T=T, U=U, pH=pH)
-        
         EOHstar = adsentry.energy
         Estar = adsentry.clean_entry.energy
         E0step = Estar + 2*EH2O
@@ -230,7 +230,7 @@ class SurfaceQueryEngine(QueryEngine):
         GO2 = 1.23*4 + 2*GH2O - GH2*2
         return 4*((1/2)*GH2+etransfer) + GO2 - 2*GH2O
         
-    def get_gibbs_adsorption_energies(self, adsorbate, criteria=None, surfplt_dict=None, T=298.15, U=0, pH=0):
+    def get_stable_gibbs_adsorption_energies(self, adsorbate, criteria=None, surfplt_dict=None, T=0, U=0, pH=0):
                     
         muH2O = -14.231 # DFT energy per formula of H2O from MP 
         muH2 = -6.7714828 # DFT energy per formula of H2 from MP 
@@ -259,16 +259,66 @@ class SurfaceQueryEngine(QueryEngine):
                     if 'adslab-' in adsentry.entry_id and adsentry.clean_entry.entry_id == slab_rid:
                         if adsentry.data['adsorbate'] == adsorbate:
                             if adsorbate == 'OH':
-                                Eads.append(self.get_G1_OER(adsentry, T=T, U=T, pH=T))
+                                Eads.append(self.get_G1_OER(adsentry, T=T, U=U, pH=pH))
                             elif adsorbate == 'O':
-                                Eads.append(self.get_G2_OER(adsentry, T=T, U=T, pH=T))
+                                Eads.append(self.get_G2_OER(adsentry, T=T, U=U, pH=pH))
                             elif adsorbate == 'OOH':
-                                Eads.append(self.get_G3_OER(adsentry, T=T, U=T, pH=T))
+                                Eads.append(self.get_G3_OER(adsentry, T=T, U=U, pH=pH))
                 if not Eads:
                     continue
                 Gads_dict[mpid][hkl] = sorted(Eads)[0] + self.Gcorr[adsorbate]
                 
         return Gads_dict
+        
+    def get_all_gibbs_adsorption_energies(self, dat_list=None, criteria=None, T=0, U=0, pH=0):
+
+        entries = self.get_slab_entries(criteria, dat_list=dat_list, relaxed=False)
+
+        Gads_dict = {}
+        for rid in entries.keys():
+            if 'adslab-' not in rid:
+                continue
+            adsentry = entries[rid]
+            mpid = adsentry.data['mpid']
+            if mpid not in Gads_dict.keys():
+                Gads_dict[mpid] = {}
+            hkl = adsentry.miller_index
+            if hkl not in Gads_dict[mpid].keys():
+                Gads_dict[mpid][hkl] = {}
+            slab_rid = adsentry.clean_entry.entry_id
+            if slab_rid not in Gads_dict[mpid][hkl].keys():
+                Gads_dict[mpid][hkl][slab_rid] = {}
+            adsorbate = adsentry.data['adsorbate'] 
+            if adsorbate not in Gads_dict[mpid][hkl][slab_rid].keys():
+                Gads_dict[mpid][hkl][slab_rid][adsorbate] = {}
+
+            if adsorbate == 'OH':
+                Gads_dict[mpid][hkl][slab_rid][adsorbate][rid] = \
+                self.get_G1_OER(adsentry, T=T, U=U, pH=pH)
+            elif adsorbate == 'O':
+                Gads_dict[mpid][hkl][slab_rid][adsorbate][rid] = \
+                self.get_G2_OER(adsentry, T=T, U=U, pH=pH)
+            elif adsorbate == 'OOH':
+                Gads_dict[mpid][hkl][slab_rid][adsorbate][rid] = \
+                self.get_G3_OER(adsentry, T=T, U=U, pH=pH)
+
+        for mpid in Gads_dict.keys():
+            for hkl in Gads_dict[mpid].keys():
+                for slab_rid in Gads_dict[mpid][hkl].keys():
+                    for adsorbate in Gads_dict[mpid][hkl][slab_rid].keys():
+                        adsrids = list(Gads_dict[mpid][hkl][slab_rid][adsorbate].keys())
+                        eads = []
+                        for eqn in Gads_dict[mpid][hkl][slab_rid][adsorbate].values():
+                            if 'float' in type(eqn).__name__:
+                                eads.append(float(eqn))
+                            else:
+                                eads.append(eqn.subs({'pH': 0, 'U': 0}))
+                        eqns = list(Gads_dict[mpid][hkl][slab_rid][adsorbate].values())
+                        eads, adsrids, eqns = zip(*sorted(zip(eads, adsrids, eqns)))
+                        Gads_dict[mpid][hkl][slab_rid][adsorbate] = (adsrids[0], eqns[0])                    
+
+        return Gads_dict
+
     
     def get_rxn_energies(self, criteria=None, dat_list=None, T=0, U=0, pH=0):
         """
@@ -282,9 +332,9 @@ class SurfaceQueryEngine(QueryEngine):
         G1 = 0
         dat_list = dat_list if dat_list else self.find_data_objects(criteria)
         surfe_dict = self.get_surfe_plotter(dat_list=dat_list)
-        G2_dict = self.get_gibbs_adsorption_energies('OH', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
-        G3_dict = self.get_gibbs_adsorption_energies('O', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
-        G4_dict = self.get_gibbs_adsorption_energies('OOH', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
+        G2_dict = self.get_stable_gibbs_adsorption_energies('OH', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
+        G3_dict = self.get_stable_gibbs_adsorption_energies('O', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
+        G4_dict = self.get_stable_gibbs_adsorption_energies('OOH', surfplt_dict=surfe_dict, T=T, U=U, pH=pH)
         G5 = 4*1.23 + 4*etransfer
         for i, d in enumerate([G2_dict, G3_dict, G4_dict]):
             for mpid in d.keys():
