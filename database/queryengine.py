@@ -270,7 +270,11 @@ class SurfaceQueryEngine(QueryEngine):
                 
         return Gads_dict
         
-    def get_all_gibbs_adsorption_energies(self, dat_list=None, criteria=None, T=0, U=0, pH=0):
+    def get_all_gibbs_adsorption_energies(self, dat_list=None, criteria=None, T=None, U=None, pH=None):
+        
+        T = Symbol('T') if not T else T
+        U = Symbol('U') if not U else U
+        pH = Symbol('pH') if not pH else pH
 
         entries = self.get_slab_entries(criteria, dat_list=dat_list, relaxed=False)
 
