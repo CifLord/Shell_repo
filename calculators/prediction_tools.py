@@ -1,6 +1,5 @@
-import torch, os, threading
+import torch, os, threading, sys, random, 
 from tqdm import tqdm
-import sys
 from calculators import vaspjob
 f = vaspjob.__file__
 repo_dir = f.replace(os.path.join(f.split('/')[-2], f.split('/')[-1]), '')
@@ -15,7 +14,6 @@ from ocpmodels.common.relaxation.ase_utils import OCPCalculator
 from structure_generation.lmdb_generator import generate_lmdb
 from ase.constraints import Hookean
 from ase.geometry.analysis import Analysis
-import random
 
 
 def add_hookean_constraint(image, des_rt = 2., rec_rt = 1., spring_constant=7.5, tol=0.15):
@@ -138,8 +136,11 @@ class MyThread(threading.Thread):
         self.pathname = pathname
         self.gpus=gpus
         self.debug = debug
+        
+        # Make a list of rid that have already been done and converged to be skipped
         if os.path.isfile(pathname):
-            self.rids_list = [dat.rid for dat in LmdbDataset({'src': pathname})]
+            self.rids_list = [dat.rid for dat in LmdbDataset({'src': pathname}) \
+                              if float(torch.max(dat.force)) < 0.055]
         else:
             self.rids_list = []
     
