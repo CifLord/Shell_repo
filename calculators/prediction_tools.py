@@ -160,8 +160,9 @@ class MyThread(threading.Thread):
             if len(data_list_E)>=10: 
                 generate_lmdb(data_list_E, self.pathname)
                 data_list_E = []
-
-        generate_lmdb(data_list_E, self.pathname)
+                
+        if data_list_E:
+            generate_lmdb(data_list_E, self.pathname)
 
 import threading
 from ase.io.trajectory import Trajectory
