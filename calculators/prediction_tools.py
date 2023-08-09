@@ -155,7 +155,10 @@ class MyThread(threading.Thread):
             if data.rid in self.rids_list:
                 continue
             # run predictions here
-            data = add_info(data, calc, debug=self.debug)
+            try:
+                data = add_info(data, calc, debug=self.debug)
+            except RuntimeError:
+                continue
             data_list_E.append(data)
             
             if len(data_list_E)>=10: 
