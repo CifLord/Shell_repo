@@ -9,7 +9,7 @@ from ocpmodels.datasets import LmdbDataset
 import logging
 from structure_generation.bare_slabs import slab_generator
 from structure_generation.lmdb_generator import generate_lmdb, lmdb_size
-from structure_generation.oxide_adsorption import surface_adsorption
+from structure_generation.oxide_adsorption import surface_adsorption, ads_dict
 from structure_generation.lmdb_generator import convert_atoms_data
 
 def read_options():
@@ -39,6 +39,10 @@ def read_options():
                         help="Number of GPUs available")
     parser.add_argument("-r", "--run_predictions", dest="run_predictions", type=bool, default=True, 
                         help="Whether or not to run predictions")
+    parser.add_argument("-a", "--remove_ads", dest="remove_ads", type=str, default=None, 
+                        help="Adsorbate to omit")
+    parser.add_argument("-n", "--max_natoms", dest="max_natoms", type=str, default=200, 
+                        help="Max number of atoms in surface")
 
     args = parser.parse_args()
 
@@ -58,6 +62,9 @@ if __name__=="__main__":
                 mpid_list=json.load(f)
     else:    
         mpid_list = args.list_of_mpids.split(' ')
+        
+    if args.remove_ads:
+        del ads_dict[args.remove_ads]
 
     p=0
     log_fname=str(args.input_lmdb).replace('.lmdb','.log')
@@ -72,10 +79,11 @@ if __name__=="__main__":
                                     functional='GemNet-OC', count_undercoordination=False)
         if len(slab_atoms)==0:
             continue
+        slab_atoms = [a for a in slab_atoms if len(a) < args.max_natoms]
         all_atoms_slabs.extend(slab_atoms)        
         # Generate all adslabs
         for slab in slab_atoms:
-            adslabs = surface_adsorption(convert_atoms_data(slab))
+            adslabs = surface_adsorption(convert_atoms_data(slab), )
             all_atoms_slabs.extend(adslabs)
         input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb' 
         logging.info('Total number of predictions: %s' %(len(all_atoms_slabs)))       
@@ -84,7 +92,7 @@ if __name__=="__main__":
         if lmdb_size(input_pathname) >=10000:
             p+=1
             input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb'                  
-        generate_lmdb(all_atoms_slabs, input_pathname)
+        generate_lmdb(all_atoms_slabs, input_pathname, ads_dict=ads_dict)
         #print('finished slab generation: %s' %(mpid))
         logging.info('finished slab generation: %s' %(mpid)) 
         
