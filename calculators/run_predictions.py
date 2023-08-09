@@ -11,6 +11,7 @@ from structure_generation.bare_slabs import slab_generator
 from structure_generation.lmdb_generator import generate_lmdb, lmdb_size
 from structure_generation.oxide_adsorption import surface_adsorption, ads_dict
 from structure_generation.lmdb_generator import convert_atoms_data
+from tqdm import tqdm
 
 def read_options():
 
@@ -71,7 +72,7 @@ if __name__=="__main__":
     logging.basicConfig(filename=log_fname, level=logging.INFO, 
                         format='%(asctime)s %(levelname)s: %(message)s')
     os.makedirs('prediction',exist_ok=True)
-    for mpid in mpid_list:
+    for mpid in tqdm(mpid_list):
         all_atoms_slabs = []        
         # Generate all bare slabs
         slab_atoms = slab_generator(mpid, args.mmi, args.slab_size, args.vac_size, 
