@@ -1,4 +1,4 @@
-import torch, os, threading, sys, random, 
+import torch, os, threading, sys, random 
 from tqdm import tqdm
 from calculators import vaspjob
 f = vaspjob.__file__
