@@ -84,7 +84,7 @@ if __name__=="__main__":
         all_atoms_slabs.extend(slab_atoms)        
         # Generate all adslabs
         for slab in slab_atoms:
-            adslabs = surface_adsorption(convert_atoms_data(slab), )
+            adslabs = surface_adsorption(convert_atoms_data(slab), ads_dict=ads_dict)
             all_atoms_slabs.extend(adslabs)
         input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb' 
         logging.info('Total number of predictions: %s' %(len(all_atoms_slabs)))       
@@ -93,7 +93,7 @@ if __name__=="__main__":
         if lmdb_size(input_pathname) >=10000:
             p+=1
             input_pathname=args.input_lmdb.rstrip('.lmdb')+'{:04d}'.format(p)+'.lmdb'                  
-        generate_lmdb(all_atoms_slabs, input_pathname, ads_dict=ads_dict)
+        generate_lmdb(all_atoms_slabs, input_pathname)
         #print('finished slab generation: %s' %(mpid))
         logging.info('finished slab generation: %s' %(mpid)) 
         
