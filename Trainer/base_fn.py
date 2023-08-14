@@ -110,7 +110,7 @@ class Trainer:
             images = images.to(self.gpu_id)
             self.optimizer.zero_grad()
             predictions = self.model(images)
-            targets = images.y / images.natoms
+            targets = images.y 
             num_atoms=images.natoms
             loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
             loss.backward()
@@ -134,7 +134,7 @@ class Trainer:
             for images in tqdm(self.val_loader):
                 images = images.to(self.gpu_id)
                 predictions = self.model(images)
-                targets = images.y / images.natoms
+                targets = images.y 
                 num_atoms=images.natoms
                 loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
                 total_loss += loss.item()
@@ -142,13 +142,18 @@ class Trainer:
 
         return total_loss / len(self.val_loader), total_acc / len(self.val_loader)
 
-    def get_loss(self,predictions, targets, num_atoms=1,y_mean=-6.21, y_std=7.26):
-        masks = (targets- y_mean) / y_std
+    def get_loss(self,predictions, targets,norm=True, num_atoms=1,y_mean=-6.21, y_std=7.26):
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
-        loss = mask_loss(predictions.view(-1, 1), masks.view(-1, 1))
-        pred_back = predictions.view(-1,1)*y_std+y_mean
-        accuracy = mask_acc(pred_back.view(-1, 1)*num_atoms , targets.view(-1, 1)*num_atoms)
+        if norm is True:
+            masks = (targets/num_atoms- y_mean) / y_std   
+            #print(masks.shape,predictions.shape,targets.shape)         
+            pred_back = (predictions*y_std+y_mean)*(num_atoms.view(-1,1))
+            loss = mask_loss(predictions, masks.view(-1, 1))   
+            accuracy = mask_acc(pred_back ,targets.view(-1, 1))
+        else:                      
+            loss = mask_loss(predictions.view(-1, 1), targets.view(-1, 1))
+            accuracy = mask_acc(predictions.view(-1, 1), targets.view(-1, 1))
         return loss, accuracy
     def _save_snapshot(self,epoch):
         snapshot={}

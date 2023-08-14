@@ -13,7 +13,7 @@ configs:
     y_mean: -6.21
     y_std: 7.26
     num_epochs: 15   
-    learning_rate: 0.001
+    learning_rate: 0.0001
     
 dataset: 
     train_set: "/shareddata/ocp/ocp22/oc22_trajectories/trajectories/Transformer_clean_data/"

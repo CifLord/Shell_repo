@@ -326,7 +326,8 @@ class EGformer(GemNetOC):
         self.out_layer1=out_layer1
         self.out_layer2=out_layer2
         self.lin_1=nn.Linear(emb_size_in,emb_size_trans)  
-        self.encoder=EncoderLayer(emb_size_trans,4,emb_size_trans)
+        self.encoder1=EncoderLayer(emb_size_trans,4,emb_size_trans)
+        self.encoder2=EncoderLayer(emb_size_trans,4,emb_size_trans)
         self.layer_norm = nn.LayerNorm(emb_size_trans)        
         self.dense=nn.Sequential(nn.Linear(emb_size_trans,out_layer1),
                             nn.SiLU(),
@@ -435,7 +436,7 @@ class EGformer(GemNetOC):
         E_t=self.lin_1(E_t)
         E_t = self.layer_norm(E_t)
 
-        E_t,encoder_attention_weights=self.encoder(E_t,mask=None)
+        E_t,encoder_attention_weights=self.encoder1(E_t,mask=None)
         # nMolecules = torch.max(batch) + 1
         E_t=torch.sum(E_t,dim=1)       
         E_t = self.layer_norm(E_t)   
@@ -446,5 +447,6 @@ class EGformer(GemNetOC):
         #         E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
         #     )  
         E_t=self.dense(E_t)
+        E_t=torch.squeeze(E_t,dim=-1)
 
         return E_t

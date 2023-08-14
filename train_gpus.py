@@ -47,14 +47,14 @@ def main(snapshot_path:str ="snapshot.pt",test_code=True):
     train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
     val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)    
     # Create the model using the loaded hyperparameters       
-    model=config_model()    
+    model=config_model(from_scrach=False)    
     trainer = Trainer(model, train_loader, val_loader, learning_rate=learning_rate,
                       warmup_epochs=warmup_epochs, decay_epochs=decay_epochs,snapshot_path=snapshot_path)
     trainer.train(num_epochs)
     dist.destroy_process_group()
     
 if __name__ == '__main__':    
-    main(test_code=True)
+    main(test_code=False)
  
  
  

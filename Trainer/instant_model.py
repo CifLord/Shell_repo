@@ -1,5 +1,5 @@
 import torch.nn as nn
-from Models.EGformer2 import EGformer
+from Models.EGformer import EGformer
 import os
 import yaml
 import torch
@@ -14,7 +14,7 @@ def config_model(from_scrach=True):
     model = EGformer(**loaded_model_hparams)
     if from_scrach==False:
         checkpoint_path=os.path.join(script_dir, '..', 'params', 'best_model_all.pt')
-        pretrained_state_dict = torch.load(checkpoint_path)['state_dict']
+        pretrained_state_dict = torch.load(checkpoint_path)["MODEL_STATE"]
         model.load_state_dict(pretrained_state_dict)
         return model        
     else:
