@@ -17,6 +17,7 @@
 ## how to use
 
 `CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --standalone --nproc_per_node=gpu train_gpus.py`
+if in carya, the gpu should be replaced by num_gpus
 
 ## Acknowledgements
 
