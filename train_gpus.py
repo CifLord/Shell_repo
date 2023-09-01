@@ -7,7 +7,7 @@ from torch_geometric.data import Dataset
 from typing import Any
 import torch.nn.init as init
 from Trainer.base_fn import Trainer
-from Models.EGformer import EGformer
+from Models.EGformer2 import EGformer
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from Loader.Dataloader import setup, DistributedDataLoader,MyDataset
