@@ -75,7 +75,7 @@ class Trainer:
         self.model=DDP(self.model,device_ids=[self.gpu_id],find_unused_parameters=True)
         
         if self.gpu_id==0:
-            wandb.init(project='shell-transformer')
+            wandb.init(project='shell-transformer',mode="offline")
             wandb.watch(self.model)
 
     def train(self, num_epochs):
