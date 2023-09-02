@@ -146,9 +146,9 @@ class Trainer:
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
         if norm is True:
-            masks = (targets/num_atoms- y_mean) / y_std   
+            masks = (targets- y_mean) / y_std   
             #print(masks.shape,predictions.shape,targets.shape)         
-            pred_back = (predictions*y_std+y_mean)*(num_atoms.view(-1,1))
+            pred_back = predictions*y_std+y_mean
             loss = mask_loss(predictions, masks.view(-1, 1))   
             accuracy = mask_acc(pred_back ,targets.view(-1, 1))
         else:                      
