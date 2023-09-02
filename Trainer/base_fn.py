@@ -145,15 +145,19 @@ class Trainer:
     def get_loss(self,predictions, targets,norm=True, num_atoms=1,y_mean=-6.21, y_std=7.26):
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
+        targets=targets.float()
         if norm is True:
             masks = (targets- y_mean) / y_std   
-            #print(masks.shape,predictions.shape,targets.shape)         
+            masks = masks.float()
+            #print(masks.shape,predictions.shape,targets.shape)
+            #print(masks.dtype,predictions.dtype,targets.dtype)                    
             pred_back = predictions*y_std+y_mean
+            
             loss = mask_loss(predictions, masks.view(-1, 1))   
             accuracy = mask_acc(pred_back ,targets.view(-1, 1))
         else:                      
-            loss = mask_loss(predictions.view(-1, 1), targets.view(-1, 1))
-            accuracy = mask_acc(predictions.view(-1, 1), targets.view(-1, 1))
+            loss = mask_loss(predictions, targets.view(-1, 1))
+            accuracy = mask_acc(predictions, targets.view(-1, 1))
         return loss, accuracy
     def _save_snapshot(self,epoch):
         snapshot={}
