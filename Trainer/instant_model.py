@@ -1,5 +1,5 @@
 import torch.nn as nn
-from Models.EGformer import EGformer
+from Models.EGformer2 import EGformer
 import os
 import yaml
 import torch
