@@ -139,7 +139,13 @@ class MyThread(threading.Thread):
         
         # Make a list of rid that have already been done and converged to be skipped
         if os.path.isfile(pathname):
-            self.rids_list = [dat.rid for dat in LmdbDataset({'src': pathname}) \
+            converged_data_list = [dat for dat in LmdbDataset({'src': pathname}) \
+                                   if float(torch.max(dat.force)) < 0.055]
+            p = pathname + '.lmdb' if '.lmdb' not in self.pathname else self.pathname
+            os.remove(p)
+            os.remove(p+'-lock')
+            generate_lmdb([], self.pathname, data_list=converged_data_list)
+            self.rids_list = [dat.rid for dat in converged_data_list \
                               if float(torch.max(dat.force)) < 0.055]
         else:
             self.rids_list = []

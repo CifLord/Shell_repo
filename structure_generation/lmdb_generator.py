@@ -41,13 +41,13 @@ def convert_atoms_data(atoms: ase.Atoms):
     return data
 
 
-def generate_lmdb(atoms_list: object, pathname: str):
+def generate_lmdb(atoms_list, pathname, pre_data_list=[]):
     """
     atoms_list:: Can be either a list of atoms objects or list of Data objects
     """
    
     if not atoms_list:
-        data_list = []
+        data_list = pre_data_list
     else: 
         data_list = [convert_atoms_data(atoms) for atoms in atoms_list] \
         if type(atoms_list[0]).__name__ == 'Atoms' else atoms_list
