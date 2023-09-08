@@ -144,7 +144,7 @@ class MyThread(threading.Thread):
             p = pathname + '.lmdb' if '.lmdb' not in self.pathname else self.pathname
             os.remove(p)
             os.remove(p+'-lock')
-            generate_lmdb([], self.pathname, data_list=converged_data_list)
+            generate_lmdb([], self.pathname, pre_data_list=converged_data_list)
             self.rids_list = [dat.rid for dat in converged_data_list \
                               if float(torch.max(dat.force)) < 0.055]
         else:
