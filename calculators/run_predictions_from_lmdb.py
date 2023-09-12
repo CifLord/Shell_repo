@@ -24,6 +24,9 @@ def read_options():
                         help="Run in debug mode, ie don't run the ASE calculator but do everything else")
     parser.add_argument("-g", "--gpus", dest="gpus", type=int, default=1, 
                         help="Number of GPUs available")
+    parser.add_argument("-a", "--remove_ads", dest="remove_ads", type=str, default=None, 
+                        help="Adsorbate to omit")
+
 
     args = parser.parse_args()
 
@@ -48,7 +51,7 @@ if __name__=="__main__":
                 lp = range(int(len(input_lmdb)/args.number_of_threads)*j, 
                            int(len(input_lmdb)/args.number_of_threads)*(1+j))
                 thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, 
-                                  args.gpus, debug=args.debug)
+                                  args.gpus, debug=args.debug, skip_ads=args.remove_ads)
                 thread.start()
                 sys.stdout = open(os.devnull, "w")
 

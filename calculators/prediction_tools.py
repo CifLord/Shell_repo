@@ -128,7 +128,7 @@ def add_info(data, calc, debug=False, traj_output=False):
 
 class MyThread(threading.Thread):
 
-    def __init__(self, datalist, pathname, gpus=0, debug=False):
+    def __init__(self, datalist, pathname, gpus=0, debug=False, skip_ads=None):
         
         threading.Thread.__init__(self)
         
@@ -147,8 +147,12 @@ class MyThread(threading.Thread):
             generate_lmdb([], self.pathname, pre_data_list=converged_data_list)
             self.rids_list = [dat.rid for dat in converged_data_list \
                               if float(torch.max(dat.force)) < 0.055]
+            if skip_ads:
+                self.rids_list.extend([dat.rid for dat in converged_data_list \
+                              if dat.adsorbate == skip_ads])
         else:
             self.rids_list = []
+            
     
     def run(self):
     
@@ -194,7 +198,8 @@ class CalculationThread(threading.Thread):
     def run(self):
         for data in tqdm(self.traj_in):
             
-            unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300, slab_formula = self.cal_from_s100(self.calc,data, self.traj_out_path)
+            unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300, slab_formula =\
+            self.cal_from_s100(self.calc,data, self.traj_out_path)
             if unrelax_slab_energy is not None:
                 continue_calc = {}
                 continue_calc[data] = {}
@@ -226,7 +231,8 @@ class CalculationThread(threading.Thread):
             relaxed_energy=atoms.get_potential_energy()
             max_forces=np.max(atoms.get_forces())
             pos_relaxed_300=atoms.get_positions()
-            return unrelax_slab_energy, max_forces, relaxed_energy, pos_relaxed_300, atoms.get_chemical_formula()
+            return unrelax_slab_energy, max_forces, relaxed_energy,\
+        pos_relaxed_300, atoms.get_chemical_formula()
         except:
             return None,None,None,None,None, None
 
