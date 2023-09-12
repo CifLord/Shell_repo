@@ -148,8 +148,10 @@ class MyThread(threading.Thread):
             self.rids_list = [dat.rid for dat in converged_data_list \
                               if float(torch.max(dat.force)) < 0.055]
             if skip_ads:
-                self.rids_list.extend([dat.rid for dat in converged_data_list \
-                              if dat.adsorbate == skip_ads])
+                for dat in converged_data_list:
+                    if 'adslab-' in dat.rid:
+                        if dat.adsorbate == skip_ads:
+                            self.rids_list.append(dat.rid)
         else:
             self.rids_list = []
             
