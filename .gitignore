@@ -112,3 +112,4 @@ Local
 
 # VS Code
 .vscode/
+Trainer/config_equiformer.py
