@@ -3,17 +3,14 @@ import wandb
 import torch
 from ocpmodels.datasets import LmdbDataset
 from torch.utils.data import random_split
-from torch_geometric.data import Dataset
 from typing import Any
-import torch.nn.init as init
 from Trainer.base_fn import Trainer
-from Models.EGformer import EGformer
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from Loader.Dataloader import setup, DistributedDataLoader,MyDataset
 from Trainer.instant_model import config_model
 import yaml
-from ocpmodels.models.gemnet_oc.gemnet_oc import GemNetOC
+
 
 # Load Hyperparameters
 with open('params/model_hparams.yml', 'r') as file:
@@ -47,7 +44,7 @@ def main(snapshot_path:str ="snapshot.pt",test_code=True):
     train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
     val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)    
     # Create the model using the loaded hyperparameters       
-    model=config_model(from_scrach=False)    
+    model=config_model(from_scrach=True)    
     trainer = Trainer(model, train_loader, val_loader, learning_rate=learning_rate,
                       warmup_epochs=warmup_epochs, decay_epochs=decay_epochs,snapshot_path=snapshot_path)
     trainer.train(num_epochs)

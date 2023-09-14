@@ -255,7 +255,7 @@ class EGformer(GemNetOC):
         emb_size_trans=64,
         out_layer1=32,
         out_layer2=1,
-        batch_size=5,
+        num_attn=4,
         **kwargs,  # backwards compatibility with deprecated arguments
     ):
         super().__init__(
@@ -317,21 +317,28 @@ class EGformer(GemNetOC):
                         num_heads=4,
                         emb_size_in=256,
                         emb_size_trans=64,
-                        out_layer1=32,
-                        out_layer2=1,
-                        batch_size=5                        
+                        out_layer1=64,
+                        out_layer2=1,                        
+                        num_attn=4                        
                         )
-        self.batch_size=batch_size
-        self.num_heads=num_heads        
+        
+        self.num_heads=num_heads 
+        self.num_attn=num_attn       
         self.out_layer1=out_layer1
         self.out_layer2=out_layer2
-        self.lin_1=nn.Linear(emb_size_in,emb_size_trans)  
-        self.encoder=EncoderLayer(emb_size_trans,4,emb_size_trans)
+        self.dense1=nn.Sequential(nn.Linear(emb_size_in,emb_size_trans),
+                            nn.SiLU()
+                            )
+        self.encoder=EncoderLayer(emb_size_trans,8,emb_size_trans)
         self.layer_norm = nn.LayerNorm(emb_size_trans)        
-        self.dense=nn.Sequential(nn.Linear(emb_size_trans,out_layer1),
+        self.dense2E=nn.Sequential(nn.Linear(emb_size_trans*5,out_layer1),
                             nn.SiLU(),
                             nn.Linear(out_layer1,out_layer2)                                 
-                            )
+                    )
+        self.dense2F=nn.Sequential(nn.Linear(emb_size_trans,out_layer1),
+                    nn.SiLU(),
+                    nn.Linear(out_layer1,out_layer2)                                 
+                    )
 
     def forward(self, data):
         pos = data.pos
@@ -383,10 +390,10 @@ class EGformer(GemNetOC):
         m = self.edge_emb(h, basis_rad_raw, main_graph["edge_index"])
         # (nEdges, emb_size_edge)
         
-        x_E, _ = self.out_blocks[0](h, m, basis_output, idx_t)
-        # print(x_E.shape)
-        # xs_E, _ = [x_E], [x_F]
-        xs_E = [x_E]
+        x_E, x_F = self.out_blocks[0](h, m, basis_output, idx_t)
+        
+        xs_E, xs_F = [x_E], [x_F]
+       
         # (nAtoms, num_targets), (nEdges, num_targets)
 
         for i in range(self.num_blocks):
@@ -410,40 +417,26 @@ class EGformer(GemNetOC):
                 quad_idx=quad_idx,
             )  # (nAtoms, emb_size_atom), (nEdges, emb_size_edge)
 
-            x_E, _ = self.out_blocks[i + 1](h, m, basis_output, idx_t)
+            x_E,x_F= self.out_blocks[i + 1](h, m, basis_output, idx_t)
             # (nAtoms, emb_size_atom), (nEdges, emb_size_edge)
             xs_E.append(x_E)
-            # xs_F.append(x_F)
+            xs_F.append(x_F)
         # Previous is the Gemnet part, and the following is the Transformer part
-        E_t = torch.stack(xs_E, dim=-1)        
-          # num_atoms=[]
-        if self.batch_size==1:
-            E_t = torch.sum(E_t,dim=-1)
-            E_t = torch.unsqueeze(E_t, dim=0)
-        else:
-            num_atoms=[data[j].natoms[0] for j in range(self.batch_size)]
-        # for j in range(self.batch_size):
-        #         num_atoms.append(data[j].natoms[0])
-        # split_indices =(np.cumsum(num_atoms)[:-1])[0]
-            E_t = torch.sum(E_t,dim=-1)
-            # The shape is N_batch x sum[num_atoms] x 256 
-            E_t = torch.split(E_t,num_atoms,dim=0)
-        # print('checkpoint2')
-            E_t = rnn_utils.pad_sequence(E_t, batch_first=True, padding_value=0)
-            # The shape is N_batch  x max_num_atoms x256
-        E_t = self.lin_1(E_t)
+        E_t = torch.stack(xs_E, dim=-1)
+        #(E_t.shape==n_batch x 256 x 5)
+        E_t=E_t.permute(0,2,1)
+        E_t = self.dense1(E_t)
         E_t = self.layer_norm(E_t)
-        #The shape is N_batch  x max_num_atoms x64
-        E_t,encoder_attention_weights=self.encoder(E_t,mask=None)
-        E_t = self.layer_norm(E_t)   
-                
-        #E_t = E_t.permute(1, 0, 2)
-        #The shape is N_batch  x max_num_atoms x64
-        E_t=self.dense(E_t)        
-        #The shape is N_batch  x max_num_atoms x1      
-        E_t=torch.sum(E_t,dim=1)
-        #The shape is N_batch x1
-        
-        
+        for _ in range(self.num_attn):             
+            E_t, _ = self.encoder(E_t, mask=None)
+            E_t = self.layer_norm(E_t)
+        E_t=E_t.reshape(E_t.shape[0],-1)
+        E_t=self.dense2E(E_t)
+        #F_t=self.dense2F(E_t)                  
+        #(E_t.shape)=n_atoms*1*1
+        nMolecules = torch.max(batch) + 1        
+        E_t = scatter_det(
+            E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
+        )
 
         return E_t

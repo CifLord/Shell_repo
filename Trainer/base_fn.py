@@ -75,7 +75,7 @@ class Trainer:
         self.model=DDP(self.model,device_ids=[self.gpu_id],find_unused_parameters=True)
         
         if self.gpu_id==0:
-            wandb.init(project='shell-transformer')
+            wandb.init(project='shell-transformer',mode="offline")
             wandb.watch(self.model)
 
     def train(self, num_epochs):
@@ -145,15 +145,19 @@ class Trainer:
     def get_loss(self,predictions, targets,norm=True, num_atoms=1,y_mean=-6.21, y_std=7.26):
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
+        targets=targets.float()
         if norm is True:
-            masks = (targets/num_atoms- y_mean) / y_std   
-            #print(masks.shape,predictions.shape,targets.shape)         
-            pred_back = (predictions*y_std+y_mean)*(num_atoms.view(-1,1))
+            masks = (targets- y_mean) / y_std   
+            masks = masks.float()
+            #print(masks.shape,predictions.shape,targets.shape)
+            #print(masks.dtype,predictions.dtype,targets.dtype)                    
+            pred_back = predictions*y_std+y_mean
+            
             loss = mask_loss(predictions, masks.view(-1, 1))   
             accuracy = mask_acc(pred_back ,targets.view(-1, 1))
         else:                      
-            loss = mask_loss(predictions.view(-1, 1), targets.view(-1, 1))
-            accuracy = mask_acc(predictions.view(-1, 1), targets.view(-1, 1))
+            loss = mask_loss(predictions, targets.view(-1, 1))
+            accuracy = mask_acc(predictions, targets.view(-1, 1))
         return loss, accuracy
     def _save_snapshot(self,epoch):
         snapshot={}
