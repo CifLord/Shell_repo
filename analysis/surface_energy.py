@@ -357,14 +357,25 @@ bulk_oxides_dict = {entry['entry_id']: entry for entry in bulk_oxides_dict}
 
 
 from matplotlib import cm
+import math
 
 def get_defect_comp_label(bulk_comp, slab_comp):
+    
+    bulk_comp = bulk_comp.reduced_composition
     cbulk = bulk_comp.as_dict()
     cslab = slab_comp.as_dict()
-    factor = min([cslab[el]/cbulk[el] for el in cslab.keys() if (cslab[el]/cbulk[el]).is_integer()])
-    excess = slab_comp - factor*bulk_comp
-    ex = excess.as_dict()
-    ex = {el: ex[el]/factor for el in ex.keys()}
+    factors = {el: cslab[el]/cbulk[el] for el in cslab.keys() if (cslab[el]/cbulk[el]).is_integer()}
+    if not factors:
+        factors = {el: math.floor(cslab[el]/cbulk[el]) for el in cslab.keys()}
+    if len(factors) > 1 and 'O' in factors.keys():
+        factor = min([factors[el] for el in factors.keys() if el != 'O'])
+    else:
+        factor = min([factors[el] for el in factors.keys()])
+    
+    nbulk_comp = factor*bulk_comp
+    ex = {el: slab_comp[el]-nbulk_comp[el] for el in cslab.keys()}
+    ex = {el: ex[el]/factor for el in ex.keys() if ex[el]/factor != 0}
+
     defect_comp = ''
     for el in cbulk:
         defect_comp+=el
@@ -375,7 +386,8 @@ def get_defect_comp_label(bulk_comp, slab_comp):
     return defect_comp
 
 
-def get_surface_pbx(entries, bulk_comp, queryengine, Ulim=[-1, 3], plot=True, bare_only=True, T=298.15, savefile='', label_rxn=True):
+def get_surface_pbx(entries, bulk_comp, queryengine, Ulim=[-1, 3], plot=True, 
+                    bare_only=True, T=298.15, savefile=None, label_rxn=True):
     
     muH2O = -14.231 # DFT energy per formula of H2O from MP 
     muH2 = -6.7714828 # DFT energy per formula of H2 from MP 
@@ -495,7 +507,8 @@ def get_surface_pbx(entries, bulk_comp, queryengine, Ulim=[-1, 3], plot=True, ba
     return most_stable_map
 
 def get_pourbaix_overpotential(queryengine, Gads_dict, stability_map, savefile=None, 
-                               T=298.15, increment=100, Ulim=[-1, 3], pathway='All'):
+                               T=298.15, increment=100, Ulim=[-1, 3], 
+                               pathway=['rxn1', 'rxn2', 'rxn3', 'rxn4']):
     
     muH2O = -14.231 # DFT energy per formula of H2O from MP 
     muH2 = -6.7714828 # DFT energy per formula of H2 from MP 
@@ -536,20 +549,16 @@ def get_pourbaix_overpotential(queryengine, Gads_dict, stability_map, savefile=N
             GadsOOH = float(eads_dict['OOH'][1]) if 'float' in type(eads_dict['OOH'][1]).__name__ \
             else eads_dict['OOH'][1].subs({'pH': pH, 'U': U})
             
-            if pathway=='All':
-                overpotential = float(max([GadsOH, GadsO-GadsOH, GadsOOH-GadsO, 
-                                           1.23*4-GadsOOH]))
-            elif pathway == '1st_half':
-                overpotential = float(max([GadsOH, GadsO-GadsOH]))
-            elif pathway == '2nd_half':
-                overpotential = float(max([GadsOOH-GadsO, 1.23*4-GadsOOH]))
+            erxn_dict = {'rxn1': GadsOH, 'rxn2': GadsO-GadsOH, 
+                         'rxn3': GadsOOH-GadsO, 'rxn4': 1.23*4-GadsOOH}
+            overpotential = float(max([erxn_dict[p] for p in pathway]))
 
             new_row.append(overpotential)
         dynamic_activity.append(new_row)
         
     pH_range, U_range = np.meshgrid(pH_range, U_range)
     plt.pcolormesh(pH_range, U_range, np.array(dynamic_activity).T, vmin=0, 
-                   vmax=6, cmap='rainbow')
+                   vmax=3, cmap='rainbow')
     
     for eqn in stability_map.keys():
         plt.plot([0,14], [eqn.subs({'pH': 0}), eqn.subs({'pH': 14})], 'k--')
