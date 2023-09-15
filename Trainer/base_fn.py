@@ -50,7 +50,7 @@ def eval_fn(data_loader,model,device,epoch):
 
 
 class Trainer:
-    def __init__(self, model, train_loader, val_loader, learning_rate, warmup_epochs:int, decay_epochs:int,snapshot_path:str):
+    def __init__(self, model, train_loader, val_loader, learning_rate,y_mean:float,y_std:float, warmup_epochs:int, decay_epochs:int,snapshot_path:str):
         
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -59,6 +59,8 @@ class Trainer:
         self.learning_rate = learning_rate
         self.warmup_epochs = warmup_epochs
         self.decay_epochs = decay_epochs
+        self.y_mean=y_mean
+        self.y_std=y_std 
         
         if os.path.exists(snapshot_path):
             print('Loading snapshot')
@@ -134,7 +136,7 @@ class Trainer:
             for images in tqdm(self.val_loader):
                 images = images.to(self.gpu_id)
                 predictions = self.model(images)
-                targets = images.y 
+                targets = (images.y -self.y_mean) / self.y_std 
                 num_atoms=images.natoms
                 loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
                 total_loss += loss.item()
@@ -142,16 +144,16 @@ class Trainer:
 
         return total_loss / len(self.val_loader), total_acc / len(self.val_loader)
 
-    def get_loss(self,predictions, targets,norm=True, num_atoms=1,y_mean=-6.21, y_std=7.26):
+    def get_loss(self,predictions, targets,norm=True, num_atoms=1):
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
         targets=targets.float()
         if norm is True:
-            masks = (targets- y_mean) / y_std   
+            masks = (targets-self.y_mean) / self.y_std   
             masks = masks.float()
             #print(masks.shape,predictions.shape,targets.shape)
             #print(masks.dtype,predictions.dtype,targets.dtype)                    
-            pred_back = predictions*y_std+y_mean
+            pred_back = predictions*self.y_std +self.y_mean
             
             loss = mask_loss(predictions, masks.view(-1, 1))   
             accuracy = mask_acc(pred_back ,targets.view(-1, 1))

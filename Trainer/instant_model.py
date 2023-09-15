@@ -13,12 +13,12 @@ def config_model(from_scrach=True):
     # Create the model using the loaded hyperparameters
     model = EGformer(**loaded_model_hparams)
     if from_scrach==False:
-        checkpoint_path=os.path.join(script_dir, '..', 'params', 'best_model_all.pt')
+        checkpoint_path=os.path.join(script_dir, '..', 'params', 'best_model.pt')
         pretrained_state_dict = torch.load(checkpoint_path)["MODEL_STATE"]
         model.load_state_dict(pretrained_state_dict)
         return model        
     else:
-        checkpoint_path=os.path.join(script_dir, '..', 'params', 'gemnet_oc_base_oc20_oc22.pt')
+        checkpoint_path=os.path.join(script_dir, '..', 'params', 'gemnet_oc_base_s2ef_all_md.pt')
         pretrained_state_dict = torch.load(checkpoint_path)['state_dict']
         new_model_state_dict = model.state_dict()
         filtered_pretrained_state_dict = {k.strip('module.module.'): v for k, v in pretrained_state_dict.items() if k.strip('module.module.') in new_model_state_dict}
