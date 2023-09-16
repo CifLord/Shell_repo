@@ -256,6 +256,7 @@ class EGformer(GemNetOC):
         out_layer1=32,
         out_layer2=1,
         num_attn=4,
+        
         **kwargs,  # backwards compatibility with deprecated arguments
     ):
         super().__init__(
@@ -319,9 +320,10 @@ class EGformer(GemNetOC):
                         emb_size_trans=64,
                         out_layer1=64,
                         out_layer2=1,                        
-                        num_attn=4                        
+                        num_attn=4,
+                                               
                         )
-        
+        self.regress_forces=regress_forces
         self.num_heads=num_heads 
         self.num_attn=num_attn       
         self.out_layer1=out_layer1
@@ -424,7 +426,7 @@ class EGformer(GemNetOC):
         # Previous is the Gemnet part, and the following is the Transformer part
         E_t = torch.stack(xs_E, dim=-1)
         #(E_t.shape==n_batch x 256 x 5)
-        E_t=E_t.permute(0,2,1)
+        E_t = E_t.permute(0,2,1)
         E_t = self.dense1(E_t)
         E_t = self.layer_norm(E_t)
         for _ in range(self.num_attn):             
@@ -438,5 +440,9 @@ class EGformer(GemNetOC):
         E_t = scatter_det(
             E_t, batch, dim=0, dim_size=nMolecules, reduce="add"
         )
+        # if self.regression_forces:
+        #     F_t = torch.stack(xs_F, dim=-1)
+            
+            
 
         return E_t
