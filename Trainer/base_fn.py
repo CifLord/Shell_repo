@@ -112,7 +112,7 @@ class Trainer:
             images = images.to(self.gpu_id)
             self.optimizer.zero_grad()
             predictions = self.model(images)
-            targets = images.y 
+            targets =(images.y -self.y_mean) / self.y_std 
             num_atoms=images.natoms
             loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
             loss.backward()

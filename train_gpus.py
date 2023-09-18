@@ -22,7 +22,7 @@ y_std = hyper_config['configs'].get("y_std")
 num_epochs =hyper_config['configs'].get("num_epochs")
 batch_size = hyper_config['configs'].get("batch_size")
 learning_rate = hyper_config['configs'].get("learning_rate")
-world_size=hyper_config['configs'].get("world_size")
+#world_size=hyper_config['configs'].get("world_size")
 train_set=hyper_config['dataset'].get("train_set")
 val_set=hyper_config['dataset'].get("val_set")
 
