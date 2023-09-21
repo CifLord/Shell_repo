@@ -9,7 +9,7 @@ from ocpmodels.datasets import LmdbDataset
 import logging
 from structure_generation.bare_slabs import slab_generator
 from structure_generation.lmdb_generator import generate_lmdb, lmdb_size
-from structure_generation.oxide_adsorption import surface_adsorption, ads_dict
+from structure_generation.metal_adatom import surface_adsorption
 from structure_generation.lmdb_generator import convert_atoms_data
 from tqdm import tqdm
 
