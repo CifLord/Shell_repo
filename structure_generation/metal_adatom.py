@@ -5,10 +5,10 @@ from pymatgen.util.coord import all_distances, pbc_shortest_vectors
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 from pymatgen.core.periodic_table import Element
 from pymatgen.analysis.structure_matcher import StructureMatcher
+from pymatgen.analysis.adsorption import AdsorbateSiteFinder
+
 from mp_api.client import MPRester
 from database.generate_metadata import write_metadata_json
-from structure_generation.MXide_adsorption import MXideAdsorbateGenerator
-
 from ase.constraints import FixAtoms
 from ase import Atoms
 
@@ -46,10 +46,9 @@ Metadata and additional API information for adsorbed slabs:
 
 from database import generate_metadata
 f = generate_metadata.__file__
-bulk_oxides_20220621 = json.load(open(f.replace(f.split('/')[-1], 'bulk_oxides_20220621.json'), 'rb'))
-bulk_oxides_dict = {entry['entry_id']: ComputedStructureEntry.from_dict(entry) \
-                    for entry in bulk_oxides_20220621}
-
+bulk_bimetallics_20230921 = json.load(open(f.replace(f.split('/')[-1], 'bulk_bimetallics_20230921.json'), 'rb'))
+bulk_bimetallics_dict = {entry['entry_id']: ComputedStructureEntry.from_dict(entry) \
+                         for entry in bulk_bimetallics_20230921}
 ads_dict = {'O': [Molecule(["O"], [[0,0,0]])], 'H': [Molecule(["H"], [[0,0,0]])], 
             'N': [Molecule(["N"], [[0,0,0]])], 'C': [Molecule(["C"], [[0,0,0]])]}
 
@@ -77,13 +76,13 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1],
     # get bulk entry
     entry_id=slab_data.entry_id
     entry_id=strip_entry(entry_id)
-    if entry_id not in bulk_oxides_dict.keys():
+    if entry_id not in bulk_bimetallics_dict.keys():
         mprester = MPRester(MAPIKEY) if MAPIKEY else MPRester()
         bulk_entry = mprester.get_entry_by_material_id(entry_id, inc_structure=True,
                                                        conventional_unit_cell=True)
         bulk_entry=bulk_entry[0] # new key need to index
     else:
-        bulk_entry = bulk_oxides_dict[entry_id]
+        bulk_entry = bulk_bimetallics_dict[entry_id]
     
     # get pmg slab
     init_slab = Slab.from_dict(json.loads(slab_data.init_pmg_slab))
@@ -101,37 +100,25 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1],
                         init_slab.oriented_unit_cell, init_slab.shift, 
                         init_slab.scale_factor, site_properties=init_slab.site_properties)
 
-    mxidegen = MXideAdsorbateGenerator(init_slab, positions=['MX_adsites'], 
-                                       selective_dynamics=True, repeat=[1,1,1])
+    adsitegen = AdsorbateSiteFinder(init_slab, selective_dynamics=False, height=0.9)
     
-    props = mxidegen.slab.site_properties
+    props = adsitegen.slab.site_properties
     for k in props.keys():
         if k not in relaxed_slab.site_properties.keys():
             relaxed_slab.add_site_property(k, props[k])
     
     all_adslabs = []
-    relaxed_adslabs = {}
-    for adsname in ads_dict.keys():
-        relaxed_adslabs[adsname] = []
-        if coverage_list == 'saturated' and adsname == 'OOH':
-            continue
-        for mol in ads_dict[adsname]:
-            relslab = relaxed_slab.copy()
-            if coverage_list == 'saturated':
-                adslabs = adsorb_saturate(relslab, mxidegen, mol)
-            else:
-                adslabs = adsorb_one(relslab, mxidegen, mol)
-                
-            for adslab in adslabs:
-                adslab.replace_species({Element('N'): Element('O')})
-                setattr(adslab, 'adsorbate', adsname)
-            relaxed_adslabs[adsname].extend(adslabs)
-
-    if coverage_list == 'saturated':
-        OHstar = max_OH_interaction_adsorption(relslab, mxidegen)
-        setattr(OHstar, 'adsorbate', 'OH')
-        relaxed_adslabs['OH'].append(OHstar)
-                
+    relaxed_adslabs = {'N': [], 'O': [], 'H': [], 'C': []}
+    adslabs = adsitegen.generate_adsorption_structures(Molecule(["O"], [[0,0,0]]), 
+                                                       repeat=[1,1,1])
+    
+    for adsname in ['N', 'O', 'H', 'C']:
+        for adslab in adslabs:
+            relslab = adslab.copy()
+            relslab.replace_species({Element('O'): Element(adsname)})
+            setattr(relslab, 'adsorbate', adsname)
+            relaxed_adslabs[adsname].append(relslab)
+                    
     sm = StructureMatcher()
     relaxed_adslabs_list = []
     for ads in relaxed_adslabs.keys():
@@ -141,14 +128,7 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1],
     adslab_atoms = []
     for adslab in relaxed_adslabs_list:
         
-        # name adsorbates
-        if adslab.adsorbate == 'O':
-            nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])
-        elif adslab.adsorbate == 'OH':
-            nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])/2
-        elif adslab.adsorbate == 'OOH':
-            nads = len([site for site in adslab if site.surface_properties == 'adsorbate'])/3
-
+        nads = 1
         new_tags = [] 
         for site in adslab:
             if site.tag == None:
@@ -158,6 +138,13 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1],
             else:
                 new_tags.append(site.tag)
         adslab.add_site_property('tag', new_tags)
+        adsite = [site for site in adslab if site.species_string in ['O', 'N', 'H', 'C']][0]
+        adslab.remove_species([adsite.species_string])
+        adslab.append(adsite.species, adsite.frac_coords, 
+                      properties={'original_index': None, 'supercell': None, 
+                                  'selective_dynamics': [True, True, True], 
+                                  'bulk_equivalent': None, 'site_type': None, 'tag': 2, 
+                                  'surface_properties': 'adsorbate', 'bulk_wyckoff': None})
 
         # get metadata 
         database = 'MP' if 'mp-' in bulk_entry.entry_id else None
@@ -175,88 +162,21 @@ def surface_adsorption(slab_data, functional='GemNet-OC', coverage_list=[1],
     
     return adslab_atoms
 
-def adsorb_one(slab, mxidegen, adsorbate):
-
-    transformed_ads_list = mxidegen.get_transformed_molecule_MXides\
-    (adsorbate, [np.deg2rad(deg) for deg in np.linspace(0, 360-120, 3)])
-
-    all_adslabs = []
-    for coord in mxidegen.MX_adsites:
-        for i, mol in enumerate(transformed_ads_list):
-            adslab = slab.copy()
-            for site in mol:
-                adslab.append(site.species, coord+site.coords, coords_are_cartesian=True,
-                              properties={'original_index': None, 'supercell': None, 
-                                          'selective_dynamics': [True, True, True], 
-                                          'bulk_equivalent': None, 'site_type': None, 'tag': 2, 
-                                          'surface_properties': 'adsorbate', 'bulk_wyckoff': None})
-            all_adslabs.append(adslab)
-
-    return all_adslabs
-
-def adsorb_saturate(slab, mxidegen, adsorbate):
-
-    transformed_ads_list = mxidegen.get_transformed_molecule_MXides\
-    (adsorbate, [np.deg2rad(deg) for deg in np.linspace(0, 360, 4)])
-
-    all_adslabs = []
-    for i, mol in enumerate(transformed_ads_list):
-        adslab = slab.copy()
-        for coord in mxidegen.MX_adsites:
-            for site in mol:
-                adslab.append(site.species, coord+site.coords, coords_are_cartesian=True, 
-                              properties={'original_index': None, 'supercell': None, 
-                                          'selective_dynamics': [True, True, True], 
-                                          'bulk_equivalent': None, 'site_type': None, 'tag': 2, 
-                                          'surface_properties': 'adsorbate', 'bulk_wyckoff': None})
-        all_adslabs.append(adslab)
-
-    return all_adslabs
-
-def max_OH_interaction_adsorption(s, mxidegen, incr=100):
-    """
-    Algorithm to saturate a surface with OH by rotating all OH 
-        molecules in such a way to minimize H-O bondlengths 
-        between H* and all surface O and O* sites. This minimization 
-        will hopefully get us a relatively stable config for adsorption.
-    """
+# def adsorb_one(slab, adsitegen, adsorbate):
     
-    # Get all surface O sites and potential O* sites
-    surf_Osites = copy.copy(mxidegen.MX_adsites)
-    for site in mxidegen.slab:
-        if all([site.surface_properties == 'surface', 
-                site.frac_coords[-1] > 0.5, site.species_string == 'O']):
-            surf_Osites.append(site.coords)
+#     adslabs = adslabgen.generate_adsorption_structures(adsorbate, repeat=[1,1,1])
 
-    transformed_ads_list = mxidegen.get_transformed_molecule_MXides\
-    (OH, [np.deg2rad(deg) for deg in np.linspace(0, 360, incr)])
 
-    satslab = s.copy()
-    for coord in mxidegen.MX_adsites:
-        all_OH_ave_dists = []
-        
-        for i, mol in enumerate(transformed_ads_list):
-            slab = mxidegen.slab.copy()
-            for site in mol:
-                slab.append(site.species, coord+site.coords, coords_are_cartesian=True)
+#     all_adslabs = []
+#     for coord in adsitegen.MX_adsites:
+#         for i, mol in enumerate(transformed_ads_list):
+#             adslab = slab.copy()
+#             for site in mol:
+#                 adslab.append(site.species, coord+site.coords, coords_are_cartesian=True,
+#                               properties={'original_index': None, 'supercell': None, 
+#                                           'selective_dynamics': [True, True, True], 
+#                                           'bulk_equivalent': None, 'site_type': None, 'tag': 2, 
+#                                           'surface_properties': 'adsorbate', 'bulk_wyckoff': None})
+#             all_adslabs.append(adslab)
 
-            shortest_vect = pbc_shortest_vectors(slab.lattice, slab[-1].frac_coords, 
-                                                 [slab.lattice.get_fractional_coords(c) \
-                                                  for c in surf_Osites])
-            all_OH_dists = []
-            for i, c in enumerate(surf_Osites):
-                # Get all distances between the H site of the adsorbate
-                # and its surrrounding O sites at the surface
-                all_OH_dists.append(all_distances([slab[-1].coords+shortest_vect[0][i]],
-                                                  [slab[-1].coords])[0][0])
-            all_OH_ave_dists.append(np.mean(all_OH_dists))
-
-        all_OH_ave_dists, transformed_ads_list = zip(*sorted(zip(all_OH_ave_dists, 
-                                                                 transformed_ads_list)))
-
-        for site in transformed_ads_list[0]:
-            satslab.append(site.species, site.coords+coord, coords_are_cartesian=True, 
-                           properties={'tag': 2, 'surface_properties': 'adsorbate',
-                                       'selective_dynamics': [True, True, True]})
-
-    return satslab
+#     return all_adslabs
