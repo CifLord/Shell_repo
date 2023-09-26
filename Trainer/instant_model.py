@@ -4,7 +4,7 @@ import os
 import yaml
 import torch
 
-def config_model(from_scrach=True):
+def config_model(from_scrach):
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the current script
     file_path = os.path.join(script_dir, '..', 'params', 'model_hparams.yml')
     with open(file_path, 'r') as file:
@@ -12,7 +12,7 @@ def config_model(from_scrach=True):
 
     # Create the model using the loaded hyperparameters
     model = EGformer(**loaded_model_hparams)
-    if from_scrach==False:
+    if from_scrach=='continue':
         checkpoint_path=os.path.join(script_dir, '..', 'params', 'pretrained_model.pt')
         pretrained_state_dict = torch.load(checkpoint_path)["MODEL_STATE"]
         model.load_state_dict(pretrained_state_dict)
