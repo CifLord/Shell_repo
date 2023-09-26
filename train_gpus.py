@@ -16,9 +16,9 @@ def read_options():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-i", "--test_code", dest="test_code", type=bool,default=False, 
+    parser.add_argument("-i", "--test_code", dest="test_code",type=str,default=None,
                         help="If True, use validation dataset for quick debug")
-    parser.add_argument("-j", "--from_scrach", dest="from_scrach", type=bool,default=True, 
+    parser.add_argument("-j", "--from_scrach", dest="from_scrach",type=str,default='initial',choices=('continue','initial'),
                         help="If training from initial or continue training.")
     
     args = parser.parse_args()
@@ -28,9 +28,11 @@ def read_options():
 
 args = read_options()
 
-if args.from_scrach is False:
-    print('Warning: the script is now training from a pretrained checkpoint,\n
-    the pretrained model should be in the path and named as "params/pretrained_model.pt"')
+if args.from_scrach == 'continue':
+        
+    print('Warning: From a pretrained checkpoint, put the checkpoints in the pretrained "params/pretrained_model.pt"')
+else:
+    print('Training from scrach')
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(script_dir, 'params', 'model_hparams.yml')
@@ -49,19 +51,21 @@ train_set=hyper_config['dataset'].get("train_set")
 val_set=hyper_config['dataset'].get("val_set")
 
 
-def main(snapshot_path:str ="snapshot.pt",test_code,from_scrach):
+def main(test_code,from_scrach,snapshot_path:str ="snapshot.pt"):
     #setup the parallel environment
     setup()
-    if test_code==True:
+    if test_code is None:
+        train_dataset = MyDataset(train_set)
+        val_dataset = MyDataset(val_set)
     # For test
     # Split the dataset into train and validation
+    else:
+        print('Testing code')
         dataset=LmdbDataset({"src":val_set})
         train_length = int(0.8 * len(dataset))
         val_length = len(dataset) - train_length        
         train_dataset, val_dataset =random_split(dataset, [train_length, val_length])
-    else:
-        train_dataset = MyDataset(train_set)
-        val_dataset = MyDataset(val_set)
+
         
     train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
     val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)    
