@@ -10,10 +10,32 @@ import torch.multiprocessing as mp
 from Loader.Dataloader import setup, DistributedDataLoader,MyDataset
 from Trainer.instant_model import config_model
 import yaml
+import argparse
+
+def read_options():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-i", "--test_code", dest="test_code", type=bool,default=False, 
+                        help="If True, use validation dataset for quick debug")
+    parser.add_argument("-j", "--from_scrach", dest="from_scrach", type=bool,default=True, 
+                        help="If training from initial or continue training.")
+    
+    args = parser.parse_args()
+    
+    return args
 
 
+args = read_options()
+
+if args.from_scrach is False:
+    print('Warning: the script is now training from a pretrained checkpoint,\n
+    the pretrained model should be in the path and named as "params/pretrained_model.pt"')
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, 'params', 'model_hparams.yml')
 # Load Hyperparameters
-with open('params/model_hparams.yml', 'r') as file:
+with open(file_path, 'r') as file:
     hyper_config = yaml.load(file, Loader=yaml.FullLoader)
 warmup_epochs = hyper_config['configs'].get("warmup_epochs")
 decay_epochs = hyper_config['configs'].get("decay_epochs")
@@ -27,7 +49,7 @@ train_set=hyper_config['dataset'].get("train_set")
 val_set=hyper_config['dataset'].get("val_set")
 
 
-def main(snapshot_path:str ="snapshot.pt",test_code=True):
+def main(snapshot_path:str ="snapshot.pt",test_code,from_scrach):
     #setup the parallel environment
     setup()
     if test_code==True:
@@ -44,14 +66,14 @@ def main(snapshot_path:str ="snapshot.pt",test_code=True):
     train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
     val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)    
     # Create the model using the loaded hyperparameters       
-    model=config_model(from_scrach=False)    
+    model=config_model(from_scrach)    
     trainer = Trainer(model, train_loader, val_loader, learning_rate=learning_rate, y_mean=y_mean,y_std=y_std,
                       warmup_epochs=warmup_epochs, decay_epochs=decay_epochs,snapshot_path=snapshot_path)
     trainer.train(num_epochs)
     dist.destroy_process_group()
     
 if __name__ == '__main__':    
-    main(test_code=False)
+    main(test_code=args.test_code,from_scrach=args.from_scrach)
  
  
  
