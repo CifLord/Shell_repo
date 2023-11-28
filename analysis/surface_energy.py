@@ -16,10 +16,9 @@ from pymatgen.analysis.phase_diagram import PhaseDiagram, PDEntry
 from pymatgen.core.periodic_table import Element
 from ase import Atoms
 
-from database import queryengine as q
+from database import generate_metadata as q
 f = q.__file__.replace(q.__file__.split('/')[-1], '')
 pd_oc22_dict = json.load(open(os.path.join(f, 'pd_oc22_dict.json'), 'r'))
-
 
 def get_ref_entries(bulk_entry, ref_element='O', MAPIKEY=None):
     """
