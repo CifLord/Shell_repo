@@ -100,7 +100,8 @@ class SlabEntry(ComputedStructureEntry):
         clean_entry=None,
         marker=None,
         color=None,
-        preset_surface_energy=None
+        preset_surface_energy=None,
+        energy_adjustments=None
     ):
         """
         Make a SlabEntry containing all relevant surface thermodynamics data.
@@ -145,6 +146,7 @@ class SlabEntry(ComputedStructureEntry):
             parameters=parameters,
             data=data,
             entry_id=entry_id,
+            energy_adjustments=energy_adjustments
         )
         
         # Returns the TOTAL number of adsorbates in the slab on BOTH sides
