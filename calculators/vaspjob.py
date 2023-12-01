@@ -19,7 +19,8 @@ from pathlib import Path
 def read_options():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-a","--is_adslab", dest="is_adslab", default=False,
+    b = True if 'adslab-' in os.getcwd().split('/')[-1] else False
+    parser.add_argument("-a","--is_adslab", dest="is_adslab", default=b,
                         type=bool, help="If this is an adslab, set dipole corrections")
     parser.add_argument("-o","--inputs_only", dest="inputs_only", default=False,
                         type=bool, help="Writes VASP inputs only, do not run VASP if True")
