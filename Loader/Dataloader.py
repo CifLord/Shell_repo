@@ -31,6 +31,12 @@ class MyDataset(Dataset):
 
     def __len__(self):
         return len(self.dataset)-1
+    
+    def get(self, idx):
+        data = self.dataset[idx]
+        if self.transform:
+            data = self.transform(data)
+        return data
 
     def __getitem__(self, idx):
         data = self.dataset[idx]
