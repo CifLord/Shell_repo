@@ -7,48 +7,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import wandb
 import os
 
-def train_fn(data_loader, model, optimizer, device,epoch, optimize_after=8):
-    data_loader.sampler.set_epoch(epoch)
-    model.train()
-    total_loss = 0.0
-    iteration = 0
-    model=DDP(model,device_ids=[rank],output_device=rank,find_unused_parameters=True)
-
-    for images in tqdm(data_loader):
-        images = images.to(device)
-        optimizer.zero_grad()
-        predictions = model(images)
-        targets = images.y/images.natoms   
-        loss, acc = get_loss(predictions, targets) 
-        loss.backward()
-
-        # Accumulate gradients for a specified number of iterations
-        iteration += 1
-        if iteration % optimize_after == 0:
-            optimizer.step()
-            iteration = 0
-            total_loss += loss.item()
-
-    return total_loss / (len(data_loader) // optimize_after)
-
-def eval_fn(data_loader,model,device,epoch):
-    data_loader.sampler.set_epoch(epoch)
-    model.eval()
-    total_loss=0.0
-    total_acc=0    
-    with torch.no_grad():
-        for images in tqdm(data_loader):            
-            images=images.to(device) 
-            predictions = model(images)
-            targets = images.y/images.natoms  
-            loss, acc = get_loss(predictions, targets)
-            total_loss+=loss.item()
-            total_acc+=acc.item()
-
-    return total_loss/len(data_loader),total_acc/len(data_loader)
-
-
-
 class Trainer:
     def __init__(self, model, train_loader, val_loader, learning_rate,y_mean:float,y_std:float, warmup_epochs:int, decay_epochs:int,snapshot_path:str):
         
@@ -102,7 +60,7 @@ class Trainer:
                        'lr': current_lr})
                 print(f'epoch:{epoch+1} Train_loss:{train_loss} Valid_loss:{valid_loss} Valid acc:{acc} lr:{current_lr}')
 
-    def train_epoch(self, epoch, optimize_after=8):
+    def train_epoch(self, epoch, optimize_after=8,norm=False):
         self.train_loader.sampler.set_epoch(epoch)
         self.model.train()
         total_loss = 0.0
@@ -112,9 +70,12 @@ class Trainer:
             images = images.to(self.gpu_id)
             self.optimizer.zero_grad()
             predictions = self.model(images)
-            targets =(images.y -self.y_mean) / self.y_std 
-            num_atoms=images.natoms
-            loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
+            if norm is True:
+                targets =(images.y -self.y_mean) / self.y_std 
+            else:
+                targets = images.y
+            
+            loss, acc = self.get_loss(predictions, targets)
             loss.backward()
 
             # Accumulate gradients for a specified number of iterations
@@ -126,7 +87,7 @@ class Trainer:
 
         return total_loss / (len(self.train_loader) // optimize_after)
 
-    def evaluate(self, epoch):
+    def evaluate(self, epoch,norm=False):
         self.val_loader.sampler.set_epoch(epoch)
         self.model.eval()
         total_loss = 0.0
@@ -136,18 +97,27 @@ class Trainer:
             for images in tqdm(self.val_loader):
                 images = images.to(self.gpu_id)
                 predictions = self.model(images)
-                targets = (images.y -self.y_mean) / self.y_std 
-                num_atoms=images.natoms
-                loss, acc = self.get_loss(predictions, targets,num_atoms=num_atoms)
+                if norm is True:
+                    targets = (images.y -self.y_mean) / self.y_std 
+                else:
+                    targets = images.y
+                
+                loss, acc = self.get_loss(predictions, targets)
                 total_loss += loss.item()
                 total_acc += acc.item()
 
         return total_loss / len(self.val_loader), total_acc / len(self.val_loader)
 
-    def get_loss(self,predictions, targets,norm=True, num_atoms=1):
+    def get_loss(self,predictions, targets,norm=True,regularization=False):
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
         targets=targets.float()
+        
+        if regularization is True:
+            #reg_item=lambda_l2* weight.norm(2)
+            reg_item=0
+        else:
+            reg_item=0
         
         if norm is True:
             masks = (targets-self.y_mean) / self.y_std   
@@ -177,3 +147,45 @@ class Trainer:
         self.model.load_state_dict(snapshot["MODEL_STATE"])
         self.epochs_run=snapshot["EPOCHS_RUN"]
         print(f"Resuming training from snapshot at Epoch{self.epochs_run}")
+
+#--------------------------------------------------------------------------------------------------old
+#-------------------------------not used--------------------------------------------------------
+def train_fn(data_loader, model, optimizer, device,epoch, optimize_after=8):
+    data_loader.sampler.set_epoch(epoch)
+    model.train()
+    total_loss = 0.0
+    iteration = 0
+    model=DDP(model,device_ids=[rank],output_device=rank,find_unused_parameters=True)
+
+    for images in tqdm(data_loader):
+        images = images.to(device)
+        optimizer.zero_grad()
+        predictions = model(images)
+        targets = images.y/images.natoms   
+        loss, acc = get_loss(predictions, targets) 
+        loss.backward()
+
+        # Accumulate gradients for a specified number of iterations
+        iteration += 1
+        if iteration % optimize_after == 0:
+            optimizer.step()
+            iteration = 0
+            total_loss += loss.item()
+
+    return total_loss / (len(data_loader) // optimize_after)
+
+def eval_fn(data_loader,model,device,epoch):
+    data_loader.sampler.set_epoch(epoch)
+    model.eval()
+    total_loss=0.0
+    total_acc=0    
+    with torch.no_grad():
+        for images in tqdm(data_loader):            
+            images=images.to(device) 
+            predictions = model(images)
+            targets = images.y/images.natoms  
+            loss, acc = get_loss(predictions, targets)
+            total_loss+=loss.item()
+            total_acc+=acc.item()
+
+    return total_loss/len(data_loader),total_acc/len(data_loader)

@@ -18,7 +18,7 @@ def read_options():
 
     parser.add_argument("-i", "--test_code", dest="test_code",type=str,default=None,
                         help="If True, use validation dataset for quick debug")
-    parser.add_argument("-j", "--from_scrach", dest="from_scrach",type=str,default='initial',choices=('continue','initial'),
+    parser.add_argument("-j", "--from_scrach", dest="from_scrach",type=str,default='others',choices=('continue','initial','others'),
                         help="If training from initial or continue training.")
     
     args = parser.parse_args()
@@ -65,7 +65,6 @@ def main(test_code,from_scrach,snapshot_path:str ="snapshot.pt"):
         train_length = int(0.8 * len(dataset))
         val_length = len(dataset) - train_length        
         train_dataset, val_dataset =random_split(dataset, [train_length, val_length])
-
         
     train_loader = DistributedDataLoader(train_dataset, batch_size=batch_size,drop_last=True)
     val_loader =DistributedDataLoader(val_dataset, batch_size=batch_size,drop_last=True)    
