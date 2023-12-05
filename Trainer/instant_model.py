@@ -35,7 +35,7 @@ def config_model(from_scrach):
 
 def config_Gemnet():   
     script_dir = os.path.dirname(os.path.abspath(__file__)) 
-    checkpoint_path=os.path.join(script_dir, '..', 'params', 'gemnet_oc_base_s2ef_all_md.pt')
+    checkpoint_path=os.path.join(script_dir, '..', 'params', 'gemnet_oc_base_oc20_oc22.pt')
     model=GemnetEO(num_atoms=0, bond_feat_dim=0, num_targets=1, num_spherical=7, num_radial=128,
                 num_blocks=4, emb_size_atom=256, emb_size_edge=512, emb_size_trip_in=64, emb_size_trip_out=64, 
                 emb_size_quad_in=32, emb_size_quad_out=32, emb_size_aint_in=64, emb_size_aint_out=64, emb_size_rbf=16, 

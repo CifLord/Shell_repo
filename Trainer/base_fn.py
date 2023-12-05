@@ -108,7 +108,7 @@ class Trainer:
 
         return total_loss / len(self.val_loader), total_acc / len(self.val_loader)
 
-    def get_loss(self,predictions, targets,norm=True,regularization=False):
+    def get_loss(self,predictions, targets,norm=False,regularization=False):
         mask_loss = nn.MSELoss()
         mask_acc=nn.L1Loss()
         targets=targets.float()
