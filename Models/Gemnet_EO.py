@@ -321,17 +321,9 @@ class GemnetEO(GemNetOC):
                         out_layer2=1,                                                
                         )
         
-        self.num_heads=num_heads        
+              
         self.out_layer1=out_layer1
-        self.out_layer2=out_layer2
-        self.lin_1=nn.Linear(emb_size_in,emb_size_trans)  
-        self.encoder1=EncoderLayer(emb_size_trans,4,emb_size_trans)
-        self.encoder2=EncoderLayer(emb_size_trans,4,emb_size_trans)
-        self.layer_norm = nn.LayerNorm(emb_size_trans)        
-        self.dense=nn.Sequential(nn.Linear(emb_size_trans,out_layer1),
-                            nn.SiLU(),
-                            nn.Linear(out_layer1,out_layer2)                                 
-                            )
+
 
     def forward(self, data):
         pos = data.pos
