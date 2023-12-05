@@ -26,19 +26,14 @@ class DistributedDataLoader(DataLoader):
 
 class MyDataset(Dataset):
     def __init__(self, data_path, transform=None):
-        self.dataset = LmdbDataset({"src": data_path})
+        super(MyDataset,self).__init__()
+        self.dataset=LmdbDataset({"src":data_path})
         self.transform = transform
 
-    def __len__(self):
+    def len(self):
         return len(self.dataset)-1
     
     def get(self, idx):
-        data = self.dataset[idx]
-        if self.transform:
-            data = self.transform(data)
-        return data
-
-    def __getitem__(self, idx):
         data = self.dataset[idx]
         if self.transform:
             data = self.transform(data)
