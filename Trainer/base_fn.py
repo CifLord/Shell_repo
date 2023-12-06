@@ -140,7 +140,7 @@ class Trainer:
         raw_model=model.module if hasattr(model,"module") else model
         snapshot["MODEL_STATE"]=raw_model.state_dict()
         snapshot["EPOCHS_RUN"]=epoch
-        torch.save(snapshot,"./params/best_model.pt")
+        torch.save(snapshot,"best_model.pt")
             
     def _load_snapshot(self,snapshot_path):
         snapshot=torch.load(snapshot_path)
