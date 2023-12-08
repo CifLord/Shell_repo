@@ -74,7 +74,7 @@ def add_hookean_constraint(image, des_rt = 2., rec_rt = 1., spring_constant=7.5,
     image.set_constraint(cons)
 
         
-def cal_slab_energy(data, calc, traj_output=False, debug=False):
+def cal_slab_energy(data, calc, traj_output=False, debug=False,refixed=False):
 
     testobj = Atoms(data.atomic_numbers, positions=data.pos, tags=data.tags, 
                     cell=data.cell.squeeze(), pbc=True)
@@ -83,8 +83,17 @@ def cal_slab_energy(data, calc, traj_output=False, debug=False):
     
     # add selective dynamics
     if len(data.fixed): # maybe previous method is more stable...
-        c = FixAtoms(mask=data.fixed)
-        testobj.set_constraint(c)
+        
+        if refixed:
+            
+            half_idx= data.fixed.size(0)//2
+            fixed_tensor = data.fixed
+            fixed_tensor[:half_idx] = 1
+            c = FixAtoms(mask=fixed_tensor)
+            testobj.set_constraint(c)
+        else:
+            c = FixAtoms(mask=data.fixed)
+            testobj.set_constraint(c)
     
     # added spring constant to prevent massive
     # surface reconstruction and desorption
@@ -111,10 +120,10 @@ def cal_slab_energy(data, calc, traj_output=False, debug=False):
     return unrelax_slab_energy, relax_slab_energy, forces, pos_relaxed
 
 
-def add_info(data, calc, debug=False, traj_output=False):
+def add_info(data, calc, debug=False, traj_output=False,refixed=False):
     
     unrelax_slab_energy, relax_slab_energy,forces, pos_relaxed = \
-    cal_slab_energy(data, calc, traj_output=traj_output, debug=debug)
+    cal_slab_energy(data, calc, traj_output=traj_output, debug=debug,refixed=refixed)
     
     data.y = relax_slab_energy
     data.unrelax_energy = unrelax_slab_energy
@@ -128,7 +137,7 @@ def add_info(data, calc, debug=False, traj_output=False):
 
 class MyThread(threading.Thread):
 
-    def __init__(self, datalist, pathname, gpus=0, debug=False, skip_ads=None):
+    def __init__(self, datalist, pathname, gpus=0, debug=False, skip_ads=None,refixed=False):
         
         threading.Thread.__init__(self)
         
@@ -136,6 +145,7 @@ class MyThread(threading.Thread):
         self.pathname = pathname
         self.gpus=gpus
         self.debug = debug
+        self.refixed=refixed
         
         # Make a list of rid that have already been done and converged to be skipped
         if os.path.isfile(pathname):
@@ -168,7 +178,7 @@ class MyThread(threading.Thread):
                 continue
             # run predictions here
             try:
-                data = add_info(data, calc, debug=self.debug)
+                data = add_info(data, calc, debug=self.debug,refixed= self.refixed)
             except RuntimeError:
                 continue
             data_list_E.append(data)
