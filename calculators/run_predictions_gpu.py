@@ -70,6 +70,7 @@ if __name__=="__main__":
     for i in lmdbs:
         i=str(i)
         print(i)
+        thread_list=[]
         if args.if_predicted == True:
             predicted=i.rstrip('.lmdb')+'_ads.lmdb'
             seeit1=LmdbDataset({"src":i})
@@ -107,5 +108,8 @@ if __name__=="__main__":
                 thread = MyThread([input_lmdb[ii] for ii in lp if ii in need_rerun], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
             else:
                 thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
+            thread_list.append(thread)
+        for thread in thread_list:
             thread.start()
-            sys.stdout = open(os.devnull, "w")
+         
+        sys.stdout = open(os.devnull, "w")
