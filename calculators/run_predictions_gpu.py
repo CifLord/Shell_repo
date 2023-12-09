@@ -111,5 +111,7 @@ if __name__=="__main__":
             thread_list.append(thread)
         for thread in thread_list:
             thread.start()
+        for thread in thread_list:
+            thread.join()
          
         sys.stdout = open(os.devnull, "w")

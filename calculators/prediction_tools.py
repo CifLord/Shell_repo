@@ -137,6 +137,9 @@ def add_info(data, calc, debug=False, traj_output=False,refixed=False):
 
 class MyThread(threading.Thread):
 
+    max_threads = 8
+    thread_limiter = threading.BoundedSemaphore(max_threads)
+
     def __init__(self, datalist, pathname, gpus=0, debug=False, skip_ads=None,refixed=False):
         
         threading.Thread.__init__(self)
@@ -168,27 +171,33 @@ class MyThread(threading.Thread):
     
     def run(self):
     
+        MyThread.thread_limiter.acquire()
         data_list_E = []        
         config_yml=os.path.join(repo_dir, 'ocp/configs/oc22/s2ef/gemnet-oc/gemnet_oc_oc20_oc22.yml')
         checkpoint=os.path.join(repo_dir, "ocp/prediction/gemnet_oc_base_oc20_oc22.pt")
         calc = OCPCalculator(config_yml, checkpoint, cpu=False)
-                    
-        for data in tqdm(self.data_list): 
-            if data.rid in self.rids_list:
-                continue
-            # run predictions here
-            try:
-                data = add_info(data, calc, debug=self.debug,refixed= self.refixed)
-            except RuntimeError:
-                continue
-            data_list_E.append(data)
-            
-            if len(data_list_E)>=10: 
-                generate_lmdb(data_list_E, self.pathname)
-                data_list_E = []
+        try:            
+            for data in tqdm(self.data_list): 
+                if data.rid in self.rids_list:
+                    continue
+                # run predictions here
+                try:
+                    data = add_info(data, calc, debug=self.debug,refixed= self.refixed)
+                except RuntimeError:
+                    continue
+                data_list_E.append(data)
                 
-        if data_list_E:
-            generate_lmdb(data_list_E, self.pathname)
+                if len(data_list_E)>=10: 
+                    generate_lmdb(data_list_E, self.pathname)
+                    data_list_E = []
+                    
+            if data_list_E:
+                generate_lmdb(data_list_E, self.pathname)
+                
+            super().run()
+        finally:
+            # Release semaphore after thread finishes
+            MyThread.thread_limiter.release()
 
 import threading
 from ase.io.trajectory import Trajectory
