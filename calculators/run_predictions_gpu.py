@@ -20,25 +20,36 @@ def read_options():
     parser.add_argument("-i", "--in_lmdb", dest="input_lmdbs", type=str, 
                         help="input lmdb path")    
     parser.add_argument("-b", "--find_intersection", dest="if_predicted", type=bool, default=False,
-                        help="if True, then no intersections")   
-    parser.add_argument("-d", "--nthreads", dest="number_of_threads", type=int, default=4,
+                        help="if True, find intersections")   
+    parser.add_argument("-d", "--nthreads", dest="number_of_threads", type=int, default=8,
                         help="Number of threads to distribute predictions to")
     parser.add_argument("-j", "--fixedslab", dest="slabs_fix", type=bool, default=False,
                         help="If set to True, the code will search the slab structures and set the fixed layer into correct type and predict ")
+    parser.add_argument("-m", "--checktype", dest="check_type", type=str, default='all',choices=('all','slabs'),
+                        help="re-run type: all means rerun slabs and ads; slabs means only rerun slabs.")
                         
 
     args = parser.parse_args()
 
     return args
     
-def find_inter(s1,s2):
+def find_inter(s1,s2,slabs_only=False):
     dict1={}
     dict2={}
-    for i in range(len(s1)):
-        dict1[i]=s1[i].rid
-    for i in range(len(s2)):
-        dict2[i]=s2[i].rid
-  
+    if slabs_only is True:
+        for i in range(len(s1)):
+            if hasattr(seeit1[i],'adsorbate'):
+                pass
+            else:
+                dict1[i]=s1[i].rid
+        for i in range(len(s2)):
+            dict2[i]=s2[i].rid
+
+    else:
+        for i in range(len(s1)):
+            dict1[i]=s1[i].rid
+        for i in range(len(s2)):
+            dict2[i]=s2[i].rid  
     set1=set([dict1.values()][0])
     set2=set([dict2.values()][0])   
     set3=list(set1-set2)
@@ -72,13 +83,27 @@ if __name__=="__main__":
         print(i)
         thread_list=[]
         if args.if_predicted == True:
-            predicted=i.rstrip('.lmdb')+'_ads.lmdb'
-            seeit1=LmdbDataset({"src":i})
-            seeit2=LmdbDataset({"src":predicted})
-            need_rerun=find_inter(seeit1,seeit2)
-        
-            input_lmdb = LmdbDataset({'src': i})
-            output_lmdb = i.rstrip('.lmdb')+'_ads2.lmdb'
+            if args.check_type == 'all':
+                predicted=i.rstrip('.lmdb')+'_ads.lmdb'
+                seeit1=LmdbDataset({"src":i})
+                seeit2=LmdbDataset({"src":predicted})
+                need_rerun=find_inter(seeit1,seeit2)
+            
+                input_lmdb = LmdbDataset({'src': i})
+                output_lmdb = i.rstrip('.lmdb')+'_ads2.lmdb'
+            else:
+                predicted=i.rstrip('.lmdb')+'_slabs.lmdb'
+                seeit1=LmdbDataset({"src":i})
+                seeit2=LmdbDataset({"src":predicted})
+                need_rerun=find_inter(seeit1,seeit2,True)
+                
+                if len(need_rerun)==0:
+                    print(i, "no need to rerun")
+                    continue
+                print(len(need_rerun))
+                input_lmdb = LmdbDataset({'src': i})
+                output_lmdb = i.rstrip('.lmdb')+'_slabs_plus.lmdb'
+                
         elif args.slabs_fix ==True:
         
             slabs_idx=get_slab_ids(i) 
@@ -106,6 +131,13 @@ if __name__=="__main__":
                 lp = range(int(len(input_lmdb)/args.number_of_threads)*j, int(len(input_lmdb)/args.number_of_threads)*(1+j))
             if args.if_predicted == True:
                 thread = MyThread([input_lmdb[ii] for ii in lp if ii in need_rerun], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
+            if args.check_type == 'slabs':
+                slabs_idx = need_rerun
+                chunk_size = len(slabs_idx) // args.number_of_threads
+                start_idx = j * chunk_size
+                end_idx = start_idx + chunk_size if j != args.number_of_threads - 1 else len(slabs_idx)
+                lp = slabs_idx[start_idx:end_idx]                
+                thread = MyThread([input_lmdb[ii] for ii in lp if ii in need_rerun], output_lmdb, gpus, debug=False,refixed=True)
             else:
                 thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
             thread_list.append(thread)
