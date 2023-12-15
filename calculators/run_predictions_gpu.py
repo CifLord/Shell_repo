@@ -85,6 +85,7 @@ if __name__=="__main__":
         if args.if_predicted == True:
             if args.check_type == 'all':
                 predicted=i.rstrip('.lmdb')+'_ads.lmdb'
+                
                 seeit1=LmdbDataset({"src":i})
                 seeit2=LmdbDataset({"src":predicted})
                 need_rerun=find_inter(seeit1,seeit2)
@@ -92,10 +93,14 @@ if __name__=="__main__":
                 input_lmdb = LmdbDataset({'src': i})
                 output_lmdb = i.rstrip('.lmdb')+'_ads2.lmdb'
             else:
-                predicted=i.rstrip('.lmdb')+'_slabs.lmdb'
+                
+                predicted=i.rstrip('.lmdb')+'_slabs.lmdb'                
                 seeit1=LmdbDataset({"src":i})
-                seeit2=LmdbDataset({"src":predicted})
-                need_rerun=find_inter(seeit1,seeit2,True)
+                if os.path.exists(predicted):
+                    seeit2=LmdbDataset({"src":predicted})
+                    need_rerun=find_inter(seeit1,seeit2,True)
+                else:
+                    need_rerun=get_slab_ids(i)                
                 
                 if len(need_rerun)==0:
                     print(i, "no need to rerun")
