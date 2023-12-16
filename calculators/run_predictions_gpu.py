@@ -82,8 +82,7 @@ def process_file(in_lmdb, args):
         
             input_lmdb = LmdbDataset({'src': i})
             output_lmdb = i.rstrip('.lmdb')+'_ads2.lmdb'
-        else:
-            
+        else:            
             predicted=i.rstrip('.lmdb')+'_slabs.lmdb'                
             seeit1=LmdbDataset({"src":i})
             if os.path.exists(predicted):
@@ -94,7 +93,7 @@ def process_file(in_lmdb, args):
             
             if len(need_rerun)==0:
                 print(i, "no need to rerun")
-                continue
+                return None
             print(len(need_rerun))
             input_lmdb = LmdbDataset({'src': i})
             output_lmdb = i.rstrip('.lmdb')+'_slabs_plus.lmdb'
@@ -150,7 +149,10 @@ if __name__=="__main__":
 
     for i in lmdbs:
         thread_list = process_file(i, args)
-        all_threads.extend(thread_list)
+        if thread_list is None:
+            continue
+        else:
+            all_threads.extend(thread_list)
     for thread in all_threads:
         thread.start()
     for thread in all_threads:
