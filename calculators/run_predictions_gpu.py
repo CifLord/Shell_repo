@@ -141,7 +141,7 @@ def process_file(in_lmdb, args):
 
 if __name__=="__main__":
     
-    sys.stdout = open(os.devnull, "w")
+    
     args = read_options()
     ppath=Path(args.input_lmdbs)
     pattern = re.compile(r'.*\d\.lmdb$')
@@ -154,6 +154,7 @@ if __name__=="__main__":
             continue
         else:
             all_threads.extend(thread_list)
+    sys.stdout = open(os.devnull, "w")
     for thread in all_threads:
         thread.start()
     for thread in all_threads:
