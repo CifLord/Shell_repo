@@ -68,10 +68,80 @@ def get_slab_ids(lmdb_path:str):
             slab_idx.append(i)
             
     return slab_idx 
-
+    
+def process_file(in_lmdb, args):
+    i=str(in_lmdb)    
+    thread_list=[]
+    if args.if_predicted == True:
+        if args.check_type == 'all':
+            predicted=i.rstrip('.lmdb')+'_ads.lmdb'
+            
+            seeit1=LmdbDataset({"src":i})
+            seeit2=LmdbDataset({"src":predicted})
+            need_rerun=find_inter(seeit1,seeit2)
+        
+            input_lmdb = LmdbDataset({'src': i})
+            output_lmdb = i.rstrip('.lmdb')+'_ads2.lmdb'
+        else:
+            
+            predicted=i.rstrip('.lmdb')+'_slabs.lmdb'                
+            seeit1=LmdbDataset({"src":i})
+            if os.path.exists(predicted):
+                seeit2=LmdbDataset({"src":predicted})
+                need_rerun=find_inter(seeit1,seeit2,True)
+            else:
+                need_rerun=get_slab_ids(i)                
+            
+            if len(need_rerun)==0:
+                print(i, "no need to rerun")
+                continue
+            print(len(need_rerun))
+            input_lmdb = LmdbDataset({'src': i})
+            output_lmdb = i.rstrip('.lmdb')+'_slabs_plus.lmdb'
+            
+    elif args.slabs_fix ==True:
+    
+        slabs_idx=get_slab_ids(i) 
+        input_lmdb = LmdbDataset({'src': i})
+        output_lmdb = i.rstrip('.lmdb')+'_slabs.lmdb'      
+    
+    else:
+        input_lmdb = LmdbDataset({'src': i})
+        output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
+    # equally distribute dataset to multiple threads
+    #logging.info('start prediction: %s' %(i))
+    print('start prediction:%s' %(i))
+    print('start prediction:',args.number_of_threads)
+    for j in range(args.number_of_threads): 
+        gpus=0 
+        if args.slabs_fix ==True:                    
+            # Calculate the start and end indices for each chunk
+            chunk_size = len(slabs_idx) // args.number_of_threads
+            start_idx = j * chunk_size
+            # For the last thread, include any remaining elements
+            end_idx = start_idx + chunk_size if j != args.number_of_threads - 1 else len(slabs_idx)
+            # Create the lp for this thread
+            lp = slabs_idx[start_idx:end_idx]
+        else:        
+            lp = range(int(len(input_lmdb)/args.number_of_threads)*j, int(len(input_lmdb)/args.number_of_threads)*(1+j))
+        if args.if_predicted == True:
+            thread = MyThread([input_lmdb[ii] for ii in lp if ii in need_rerun], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
+        if args.check_type == 'slabs':
+            slabs_idx = need_rerun
+            chunk_size = len(slabs_idx) // args.number_of_threads
+            start_idx = j * chunk_size
+            end_idx = start_idx + chunk_size if j != args.number_of_threads - 1 else len(slabs_idx)
+            lp = slabs_idx[start_idx:end_idx]                
+            thread = MyThread([input_lmdb[ii] for ii in lp if ii in need_rerun], output_lmdb, gpus, debug=False,refixed=True)
+        else:
+            thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
+        thread_list.append(thread)
+        
+    return thread_list
 
 if __name__=="__main__":
     
+    sys.stdout = open(os.devnull, "w")
     args = read_options()
     ppath=Path(args.input_lmdbs)
     pattern = re.compile(r'.*\d\.lmdb$')
@@ -79,76 +149,9 @@ if __name__=="__main__":
     lmdbs = [path for path in sorted(ppath.glob("*.lmdb")) if pattern.match(str(path))]
 
     for i in lmdbs:
-        i=str(i)
-        print(i)
-        thread_list=[]
-        if args.if_predicted == True:
-            if args.check_type == 'all':
-                predicted=i.rstrip('.lmdb')+'_ads.lmdb'
-                
-                seeit1=LmdbDataset({"src":i})
-                seeit2=LmdbDataset({"src":predicted})
-                need_rerun=find_inter(seeit1,seeit2)
-            
-                input_lmdb = LmdbDataset({'src': i})
-                output_lmdb = i.rstrip('.lmdb')+'_ads2.lmdb'
-            else:
-                
-                predicted=i.rstrip('.lmdb')+'_slabs.lmdb'                
-                seeit1=LmdbDataset({"src":i})
-                if os.path.exists(predicted):
-                    seeit2=LmdbDataset({"src":predicted})
-                    need_rerun=find_inter(seeit1,seeit2,True)
-                else:
-                    need_rerun=get_slab_ids(i)                
-                
-                if len(need_rerun)==0:
-                    print(i, "no need to rerun")
-                    continue
-                print(len(need_rerun))
-                input_lmdb = LmdbDataset({'src': i})
-                output_lmdb = i.rstrip('.lmdb')+'_slabs_plus.lmdb'
-                
-        elif args.slabs_fix ==True:
-        
-            slabs_idx=get_slab_ids(i) 
-            input_lmdb = LmdbDataset({'src': i})
-            output_lmdb = i.rstrip('.lmdb')+'_slabs.lmdb'      
-        
-        else:
-            input_lmdb = LmdbDataset({'src': i})
-            output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
-        # equally distribute dataset to multiple threads
-        #logging.info('start prediction: %s' %(i))
-        print('start prediction:%s' %(i))
-        print('start prediction:',args.number_of_threads)
-        for j in range(args.number_of_threads): 
-            gpus=0 
-            if args.slabs_fix ==True:                    
-                # Calculate the start and end indices for each chunk
-                chunk_size = len(slabs_idx) // args.number_of_threads
-                start_idx = j * chunk_size
-                # For the last thread, include any remaining elements
-                end_idx = start_idx + chunk_size if j != args.number_of_threads - 1 else len(slabs_idx)
-                # Create the lp for this thread
-                lp = slabs_idx[start_idx:end_idx]
-            else:        
-                lp = range(int(len(input_lmdb)/args.number_of_threads)*j, int(len(input_lmdb)/args.number_of_threads)*(1+j))
-            if args.if_predicted == True:
-                thread = MyThread([input_lmdb[ii] for ii in lp if ii in need_rerun], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
-            if args.check_type == 'slabs':
-                slabs_idx = need_rerun
-                chunk_size = len(slabs_idx) // args.number_of_threads
-                start_idx = j * chunk_size
-                end_idx = start_idx + chunk_size if j != args.number_of_threads - 1 else len(slabs_idx)
-                lp = slabs_idx[start_idx:end_idx]                
-                thread = MyThread([input_lmdb[ii] for ii in lp if ii in need_rerun], output_lmdb, gpus, debug=False,refixed=True)
-            else:
-                thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
-            thread_list.append(thread)
-        for thread in thread_list:
-            thread.start()
-        for thread in thread_list:
-            thread.join()
-         
-        sys.stdout = open(os.devnull, "w")
+        thread_list = process_file(i, args)
+        all_threads.extend(thread_list)
+    for thread in all_threads:
+        thread.start()
+    for thread in all_threads:
+        thread.join()
