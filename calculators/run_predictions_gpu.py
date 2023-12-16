@@ -147,7 +147,7 @@ if __name__=="__main__":
     pattern = re.compile(r'.*\d\.lmdb$')
     # Use a list comprehension with the re.match function to filter the files
     lmdbs = [path for path in sorted(ppath.glob("*.lmdb")) if pattern.match(str(path))]
-
+    all_threads = []
     for i in lmdbs:
         thread_list = process_file(i, args)
         if thread_list is None:
