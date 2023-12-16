@@ -36,9 +36,10 @@ def read_options():
 def find_inter(s1,s2,slabs_only=False):
     dict1={}
     dict2={}
+    
     if slabs_only is True:
         for i in range(len(s1)):
-            if hasattr(seeit1[i],'adsorbate'):
+            if hasattr(s1[i],'adsorbate'):
                 pass
             else:
                 dict1[i]=s1[i].rid
