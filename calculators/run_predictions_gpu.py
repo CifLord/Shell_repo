@@ -98,16 +98,16 @@ def process_file(in_lmdb, args):
             print(len(need_rerun))
             input_lmdb = LmdbDataset({'src': i})
             output_lmdb = i.rstrip('.lmdb')+'_slabs_plus.lmdb'
-            
-    elif args.slabs_fix ==True:
+    else:        
+        if args.slabs_fix ==True:
     
-        slabs_idx=get_slab_ids(i) 
-        input_lmdb = LmdbDataset({'src': i})
-        output_lmdb = i.rstrip('.lmdb')+'_slabs.lmdb'      
+            slabs_idx=get_slab_ids(i) 
+            input_lmdb = LmdbDataset({'src': i})
+            output_lmdb = i.rstrip('.lmdb')+'_slabs.lmdb'      
     
-    else:
-        input_lmdb = LmdbDataset({'src': i})
-        output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
+        else:
+            input_lmdb = LmdbDataset({'src': i})
+            output_lmdb = i.rstrip('.lmdb')+'_ads.lmdb'
     # equally distribute dataset to multiple threads
     #logging.info('start prediction: %s' %(i))
     print('start prediction:%s' %(i))
@@ -127,7 +127,7 @@ def process_file(in_lmdb, args):
         if args.if_predicted == True:
             thread = MyThread([input_lmdb[ii] for ii in lp if ii in need_rerun], output_lmdb, gpus, debug=False,refixed=args.slabs_fix)
         if args.check_type == 'slabs':
-            slabs_idx = need_rerun
+            need_rerun = slabs_idx
             chunk_size = len(slabs_idx) // args.number_of_threads
             start_idx = j * chunk_size
             end_idx = start_idx + chunk_size if j != args.number_of_threads - 1 else len(slabs_idx)
@@ -144,9 +144,10 @@ if __name__=="__main__":
     
     args = read_options()
     ppath=Path(args.input_lmdbs)
-    pattern = re.compile(r'.*\d\.lmdb$')
+    #pattern = re.compile(r'.*\d\.lmdb$')
     # Use a list comprehension with the re.match function to filter the files
-    lmdbs = [path for path in sorted(ppath.glob("*.lmdb")) if pattern.match(str(path))]
+    #lmdbs = [path for path in sorted(ppath.glob("*.lmdb")) if pattern.match(str(path))]
+    lmdbs=sorted(ppath.glob("*.lmdb"))
     all_threads = []
     for i in lmdbs:
         thread_list = process_file(i, args)
