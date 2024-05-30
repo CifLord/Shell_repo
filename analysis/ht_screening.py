@@ -52,7 +52,7 @@ def screen_all_data(stable_rid_dict, pbx_stable_mpids, all_activity,
     activity_dict_ooh = {}
     rate_determining_step = {}
 
-    for mpid in tqdm(stable_rid_dict.keys()):
+    for mpid in stable_rid_dict.keys():
         activity_dict[mpid] = []
         activity_dict_ooh[mpid] = []
         rate_determining_step[mpid] = []
