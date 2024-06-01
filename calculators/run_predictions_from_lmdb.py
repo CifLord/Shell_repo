@@ -26,7 +26,8 @@ def read_options():
                         help="Number of GPUs available")
     parser.add_argument("-a", "--remove_ads", dest="remove_ads", type=str, default=None, 
                         help="Adsorbate to omit")
-
+    parser.add_argument("-s", "--add_spring", dest="add_spring", type=str, default=True, 
+                        help="Whether or not to add Hookean constraints")
 
     args = parser.parse_args()
 
@@ -51,7 +52,7 @@ if __name__=="__main__":
                 lp = range(int(len(input_lmdb)/args.number_of_threads)*j, 
                            int(len(input_lmdb)/args.number_of_threads)*(1+j))
                 thread = MyThread([input_lmdb[ii] for ii in lp], output_lmdb, 
-                                  args.gpus, debug=args.debug, skip_ads=args.remove_ads)
+                                  args.gpus, debug=args.debug, skip_ads=args.remove_ads, add_spring=args.add_spring)
                 thread.start()
                 sys.stdout = open(os.devnull, "w")
 
